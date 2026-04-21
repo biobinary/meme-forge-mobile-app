@@ -83,11 +83,20 @@ class EditorScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Colors.black,
-      extendBodyBehindAppBar: true,
+      extendBodyBehindAppBar: false,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        // Solid opaque bar — no longer overlays the canvas
+        backgroundColor: const Color(0xFF18181B),
         foregroundColor: Colors.white,
         elevation: 0,
+        // Crisp Neo-Brutalism bottom border
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1.5),
+          child: Container(
+            height: 1.5,
+            color: Colors.white12,
+          ),
+        ),
         title: Text(
           'Editor',
           style: GoogleFonts.anton(
@@ -108,21 +117,35 @@ class EditorScreen extends ConsumerWidget {
           },
         ),
         actions: [
-          TextButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                      'Selesai diklik! Fitur simpan/bagikan ada di Tahap 3.'),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: TextButton(
+              style: TextButton.styleFrom(
+                backgroundColor: const Color(0xFFFFD500),
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: const BorderSide(color: Colors.black, width: 2),
                 ),
-              );
-            },
-            child: const Text(
-              'Selesai',
-              style: TextStyle(
-                color: Color(0xFFFFD500),
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
+              ),
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                        'Selesai diklik! Fitur simpan/bagikan ada di Tahap 3.'),
+                  ),
+                );
+              },
+              child: Text(
+                'Selesai',
+                style: GoogleFonts.nunito(
+                  textStyle: const TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                  ),
+                ),
               ),
             ),
           ),
@@ -149,7 +172,7 @@ class EditorScreen extends ConsumerWidget {
   }
 }
 
-class _EditorCanvas extends ConsumerWidget {
+class _EditorCanvas extends ConsumerStatefulWidget {
   const _EditorCanvas({
     required this.imageFile,
     required this.editorState,
@@ -157,6 +180,17 @@ class _EditorCanvas extends ConsumerWidget {
 
   final File imageFile;
   final EditorState editorState;
+
+  @override
+  ConsumerState<_EditorCanvas> createState() => _EditorCanvasState();
+}
+
+class _EditorCanvasState extends ConsumerState<_EditorCanvas> {
+  String? _activeOverlayId;
+
+  // Registry of GlobalKeys for each sticker widget so we can locate their
+  // bounding boxes in screen-space to correctly place the delete button.
+  final Map<String, GlobalKey> _stickerKeys = {};
 
   ColorFilter _getFilter(String filter) {
     switch (filter) {
@@ -187,85 +221,223 @@ class _EditorCanvas extends ConsumerWidget {
     }
   }
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final hasTop = editorState.topText?.isNotEmpty == true;
-    final hasBottom = editorState.bottomText?.isNotEmpty == true;
+  Offset? _getStickerGlobalPosition(String overlayId) {
+    final key = _stickerKeys[overlayId];
+    if (key == null) return null;
+    final renderBox = key.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null || !renderBox.hasSize) return null;
 
-    return Center(
-      child: InteractiveViewer(
-        // Disable pan on InteractiveViewer so it doesn't compete with sticker drag
-        panEnabled: false,
-        minScale: 0.5,
-        maxScale: 4.0,
-        child: Stack(
+    return renderBox.localToGlobal(
+      Offset(renderBox.size.width / 2, renderBox.size.height / 2),
+    );
+  }
+
+  bool _isDragging = false;
+  bool _isNearTrash = false;
+  final GlobalKey _trashKey = GlobalKey();
+
+  void _checkIfNearTrash(Offset globalPosition) {
+    final trashBox = _trashKey.currentContext?.findRenderObject() as RenderBox?;
+    if (trashBox == null || !trashBox.hasSize) return;
+
+    final trashPosition = trashBox.localToGlobal(Offset.zero);
+    final trashSize = trashBox.size;
+
+    // Expand detection area
+    final trashRect = Rect.fromLTWH(
+      trashPosition.dx - 20,
+      trashPosition.dy - 20,
+      trashSize.width + 40,
+      trashSize.height + 40,
+    );
+
+    final isNear = trashRect.contains(globalPosition);
+    if (isNear != _isNearTrash) {
+      setState(() => _isNearTrash = isNear);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasTop = widget.editorState.topText?.isNotEmpty == true;
+    final hasBottom = widget.editorState.bottomText?.isNotEmpty == true;
+
+    // Ensure keys exist for every overlay and prune stale keys.
+    final currentIds = widget.editorState.overlays.map((o) => o.id).toSet();
+    _stickerKeys.removeWhere((id, _) => !currentIds.contains(id));
+    for (final item in widget.editorState.overlays) {
+      _stickerKeys.putIfAbsent(item.id, () => GlobalKey());
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Stack(
+          clipBehavior: Clip.none,
           alignment: Alignment.center,
           children: [
-            // ── Background Image ──────────────────────────────────────────
-            ColorFiltered(
-              colorFilter: _getFilter(editorState.activeFilter),
-              child: editorState.croppedImageBytes != null
-                  ? Image.memory(
-                      editorState.croppedImageBytes!,
-                      fit: BoxFit.contain,
-                    )
-                  : Image.file(
-                      imageFile,
-                      fit: BoxFit.contain,
-                    ),
+            GestureDetector(
+              onTap: () {
+                if (_activeOverlayId != null) {
+                  setState(() => _activeOverlayId = null);
+                }
+              },
+              child: InteractiveViewer(
+                panEnabled: false,
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: SizedBox(
+                  width: constraints.maxWidth,
+                  height: constraints.maxHeight,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // ── Background Image ────────────────────────────────────
+                      ColorFiltered(
+                        colorFilter: _getFilter(widget.editorState.activeFilter),
+                        child: widget.editorState.croppedImageBytes != null
+                            ? Image.memory(
+                                widget.editorState.croppedImageBytes!,
+                                fit: BoxFit.contain,
+                              )
+                            : Image.file(
+                                widget.imageFile,
+                                fit: BoxFit.contain,
+                              ),
+                      ),
+
+                      ...widget.editorState.overlays.map((item) {
+                        return _DraggableSticker(
+                          key: ValueKey(item.id),
+                          stickerKey: _stickerKeys[item.id]!,
+                          item: item,
+                          isActive: _activeOverlayId == item.id,
+                          onTap: () => setState(() => _activeOverlayId = item.id),
+                          onDragStart: () => setState(() => _isDragging = true),
+                          onDragUpdate: (globalPos) => _checkIfNearTrash(globalPos),
+                          onDragEnd: (globalPos) {
+                            if (_isNearTrash) {
+                              ref.read(editorProvider.notifier).removeOverlay(item.id);
+                              setState(() => _activeOverlayId = null);
+                            }
+                            setState(() {
+                              _isDragging = false;
+                              _isNearTrash = false;
+                            });
+                          },
+                          // Notify canvas to repaint
+                          onTransformChanged: () => setState(() {}),
+                        );
+                      }),
+
+                      if (hasTop)
+                        Positioned(
+                          top: 16,
+                          left: 16,
+                          right: 16,
+                          child: GestureDetector(
+                            onLongPress: () => ref
+                                .read(editorProvider.notifier)
+                                .clearMemeText(MemeTextSlot.top),
+                            child: _MemeTextWidget(
+                              text: widget.editorState.topText!,
+                              font: widget.editorState.memeFont,
+                              color: widget.editorState.memeColor,
+                            ),
+                          ),
+                        ),
+
+                      if (hasBottom)
+                        Positioned(
+                          bottom: 16,
+                          left: 16,
+                          right: 16,
+                          child: GestureDetector(
+                            onLongPress: () => ref
+                                .read(editorProvider.notifier)
+                                .clearMemeText(MemeTextSlot.bottom),
+                            child: _MemeTextWidget(
+                              text: widget.editorState.bottomText!,
+                              font: widget.editorState.memeFont,
+                              color: widget.editorState.memeColor,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
             ),
 
-            ...editorState.overlays.map((item) {
-              return _DraggableSticker(
-                key: ValueKey(item.id),
-                item: item,
-              );
-            }),
-
-            if (hasTop)
-              Positioned(
-                top: 16,
-                left: 16,
-                right: 16,
-                child: GestureDetector(
-                  onLongPress: () => ref
-                      .read(editorProvider.notifier)
-                      .clearMemeText(MemeTextSlot.top),
-                  child: _MemeTextWidget(
-                    text: editorState.topText!,
-                    font: editorState.memeFont,
-                    color: editorState.memeColor,
+            // ── Trash Bin UI ──────────────────────────────────────────────
+            Positioned(
+              bottom: 40,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 200),
+                opacity: _isDragging ? 1.0 : 0.0,
+                child: AnimatedScale(
+                  duration: const Duration(milliseconds: 200),
+                  scale: _isDragging ? (_isNearTrash ? 1.3 : 1.0) : 0.8,
+                  child: Container(
+                    key: _trashKey,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: _isNearTrash ? const Color(0xFFFF5555) : const Color(0xFF18181B),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white,
+                        width: 2,
+                      ),
+                      boxShadow: [
+                        if (_isNearTrash)
+                          const BoxShadow(
+                            color: Colors.black,
+                            offset: Offset(4, 4),
+                          )
+                        else
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.5),
+                            offset: const Offset(0, 4),
+                          ),
+                      ],
+                    ),
+                    child: Icon(
+                      _isNearTrash ? Icons.delete_forever_rounded : Icons.delete_outline_rounded,
+                      color: Colors.white,
+                      size: 32,
+                    ),
                   ),
                 ),
               ),
-
-            if (hasBottom)
-              Positioned(
-                bottom: 16,
-                left: 16,
-                right: 16,
-                child: GestureDetector(
-                  onLongPress: () => ref
-                      .read(editorProvider.notifier)
-                      .clearMemeText(MemeTextSlot.bottom),
-                  child: _MemeTextWidget(
-                    text: editorState.bottomText!,
-                    font: editorState.memeFont,
-                    color: editorState.memeColor,
-                  ),
-                ),
-              ),
+            ),
           ],
-        ),
-      ),
+        );
+      },
     );
   }
 }
 
 class _DraggableSticker extends ConsumerStatefulWidget {
-  const _DraggableSticker({super.key, required this.item});
+  const _DraggableSticker({
+    super.key,
+    required this.stickerKey,
+    required this.item,
+    required this.isActive,
+    required this.onTap,
+    required this.onTransformChanged,
+    required this.onDragStart,
+    required this.onDragUpdate,
+    required this.onDragEnd,
+  });
 
+  /// Key attached to the visible sticker container
+  final GlobalKey stickerKey;
   final OverlayItem item;
+  final bool isActive;
+  final VoidCallback onTap;
+  final VoidCallback onTransformChanged;
+  final VoidCallback onDragStart;
+  final Function(Offset) onDragUpdate;
+  final Function(Offset) onDragEnd;
 
   @override
   ConsumerState<_DraggableSticker> createState() => _DraggableStickerState();
@@ -273,52 +445,125 @@ class _DraggableSticker extends ConsumerStatefulWidget {
 
 class _DraggableStickerState extends ConsumerState<_DraggableSticker> {
   late Offset _localPosition;
-  bool _isDragging = false;
+  late double _localScale;
+  late double _localRotation;
+
+  double _baseScale = 1.0;
+  double _baseRotation = 0.0;
 
   @override
   void initState() {
     super.initState();
     _localPosition = widget.item.position;
+    _localScale = widget.item.scale;
+    _localRotation = widget.item.rotation;
   }
 
   @override
   void didUpdateWidget(_DraggableSticker oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Sync position when the provider updates externally (e.g. undo/reset)
-    // but don't override during an active drag.
-    if (!_isDragging && oldWidget.item.position != widget.item.position) {
+    if (oldWidget.item.position != widget.item.position) {
       _localPosition = widget.item.position;
+    }
+    if (oldWidget.item.scale != widget.item.scale) {
+      _localScale = widget.item.scale;
+    }
+    if (oldWidget.item.rotation != widget.item.rotation) {
+      _localRotation = widget.item.rotation;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final invScale = 1.0 / _localScale;
+
     return Positioned(
       left: _localPosition.dx,
       top: _localPosition.dy,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onPanStart: (_) => setState(() => _isDragging = true),
-        onPanUpdate: (details) {
+        onTap: widget.onTap,
+        onScaleStart: (details) {
+          widget.onTap();
+          _baseScale = _localScale;
+          _baseRotation = _localRotation;
+          widget.onDragStart();
+        },
+        onScaleUpdate: (details) {
           setState(() {
-            _localPosition += details.delta;
+            _localScale = (_baseScale * details.scale).clamp(0.2, 5.0);
+            _localRotation = _baseRotation + details.rotation;
+            _localPosition += details.focalPointDelta;
           });
+          // Notify parent so the delete button overlay follows in real-time.
+          widget.onTransformChanged();
+
+          // Calculate global position for trash detection
+          final renderBox = widget.stickerKey.currentContext?.findRenderObject() as RenderBox?;
+          if (renderBox != null) {
+            final globalPos = renderBox.localToGlobal(
+              Offset(renderBox.size.width / 2, renderBox.size.height / 2),
+            );
+            widget.onDragUpdate(globalPos);
+          }
         },
-        onPanEnd: (_) {
-          setState(() => _isDragging = false);
-          ref
-              .read(editorProvider.notifier)
-              .updateOverlayPosition(widget.item.id, _localPosition);
+        onScaleEnd: (details) {
+          ref.read(editorProvider.notifier).updateOverlayTransform(
+                widget.item.id,
+                _localPosition,
+                _localScale,
+                _localRotation,
+              );
+
+          final renderBox = widget.stickerKey.currentContext?.findRenderObject() as RenderBox?;
+          if (renderBox != null) {
+            final globalPos = renderBox.localToGlobal(
+              Offset(renderBox.size.width / 2, renderBox.size.height / 2),
+            );
+            widget.onDragEnd(globalPos);
+          } else {
+            // Fallback if renderBox is null
+            widget.onDragEnd(Offset.zero);
+          }
         },
-        onLongPress: () {
-          ref.read(editorProvider.notifier).removeOverlay(widget.item.id);
-        },
-        child: Transform.scale(
-          // Subtle scale-up while dragging to signal the item is 'lifted'
-          scale: _isDragging ? 1.12 : 1.0,
-          child: Text(
-            widget.item.content,
-            style: TextStyle(fontSize: widget.item.size),
+        child: Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.identity()
+            ..scale(_localScale)
+            ..rotateZ(_localRotation),
+          child: Container(
+            // Transparent bleed area keeps the gesture area comfortable.
+            padding: EdgeInsets.all(16 * invScale),
+            color: Colors.transparent,
+            child: Container(
+              // stickerKey tracks the visible bounding box so the parent
+              // can place the delete button correctly in screen space.
+              key: widget.stickerKey,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              decoration: widget.isActive
+                  ? BoxDecoration(
+                      // Use invScale so the border stays ~3px in screen space
+                      // regardless of how much the sticker has been scaled.
+                      border: Border.all(
+                        color: const Color(0xFFFFD500),
+                        width: 3.0 * invScale,
+                      ),
+                      borderRadius: BorderRadius.circular(12 * invScale),
+                      color: Colors.white.withValues(alpha: 0.1),
+                    )
+                  : BoxDecoration(
+                      // Transparent border keeps the layout identical.
+                      border: Border.all(
+                        color: Colors.transparent,
+                        width: 3.0 * invScale,
+                      ),
+                      borderRadius: BorderRadius.circular(12 * invScale),
+                    ),
+              child: Text(
+                widget.item.content,
+                style: TextStyle(fontSize: widget.item.size),
+              ),
+            ),
           ),
         ),
       ),

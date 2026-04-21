@@ -28,11 +28,19 @@ class _CropScreenState extends State<CropScreen> {
 
   ui.Image? _uiImage;
   Size _previewSize = Size.zero;  
-  Rect _cropRect = Rect.zero;
+  final ValueNotifier<Rect> _cropRectNotifier = ValueNotifier<Rect>(Rect.zero);
+  Rect get _cropRect => _cropRectNotifier.value;
+  set _cropRect(Rect value) => _cropRectNotifier.value = value;
   Rect _imageRect = Rect.zero;
 
   bool _isApplying = false;
   bool _imageLoaded = false;
+
+  @override
+  void dispose() {
+    _cropRectNotifier.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -118,7 +126,7 @@ class _CropScreenState extends State<CropScreen> {
     return Rect.fromLTRB(l, t, r, b);
   }
 
-  static const double _handleZone = 28.0;
+  static const double _handleZone = 56.0;
 
   _DragHandle? _activeHandle;
 
@@ -202,9 +210,7 @@ class _CropScreenState extends State<CropScreen> {
       next = _enforceRatio(next, ratio, _activeHandle!);
     }
 
-    setState(() {
-      _cropRect = _clamp(next);
-    });
+    _cropRect = _clamp(next);
   }
 
   void _onPanEnd(DragEndDetails d) {
@@ -368,7 +374,7 @@ class _CropScreenState extends State<CropScreen> {
                                 child: CustomPaint(
                                   painter: _CropPainter(
                                     imageRect: _imageRect,
-                                    cropRect: _cropRect,
+                                    cropRectNotifier: _cropRectNotifier,
                                   ),
                                 ),
                               ),
@@ -436,12 +442,10 @@ class _CropScreenState extends State<CropScreen> {
                   // Reset button
                   TextButton.icon(
                     onPressed: () {
-                      setState(() {
-                        _cropRect = _applyRatio(
-                          _imageRect,
-                          _ratios[_selectedRatio],
-                        );
-                      });
+                      _cropRect = _applyRatio(
+                        _imageRect,
+                        _ratios[_selectedRatio],
+                      );
                     },
                     icon: const Icon(
                       Icons.refresh_rounded,
@@ -481,18 +485,19 @@ enum _DragHandle {
 }
 
 class _CropPainter extends CustomPainter {
-  const _CropPainter({
+  _CropPainter({
     required this.imageRect,
-    required this.cropRect,
-  });
+    required this.cropRectNotifier,
+  }) : super(repaint: cropRectNotifier);
 
   final Rect imageRect;
-  final Rect cropRect;
+  final ValueNotifier<Rect> cropRectNotifier;
 
   @override
   void paint(Canvas canvas, Size size) {
     
     final dimPaint = Paint()..color = Colors.black.withValues(alpha: 0.55);
+    final cropRect = cropRectNotifier.value;
 
     if (imageRect != Rect.zero && cropRect != Rect.zero) {
       canvas.drawRect(
@@ -577,7 +582,7 @@ class _CropPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_CropPainter old) =>
-      old.cropRect != cropRect || old.imageRect != imageRect;
+      old.imageRect != imageRect;
 }
 
 enum _Corner { topLeft, topRight, bottomLeft, bottomRight }

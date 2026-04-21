@@ -13,6 +13,8 @@ class OverlayItem {
   final Offset position;
   final Color color;
   final double size;
+  final double scale;
+  final double rotation;
 
   OverlayItem({
     required this.id,
@@ -21,6 +23,8 @@ class OverlayItem {
     required this.position,
     required this.color,
     required this.size,
+    this.scale = 1.0,
+    this.rotation = 0.0,
   });
 
   OverlayItem copyWith({
@@ -30,6 +34,8 @@ class OverlayItem {
     Offset? position,
     Color? color,
     double? size,
+    double? scale,
+    double? rotation,
   }) {
     return OverlayItem(
       id: id ?? this.id,
@@ -38,6 +44,8 @@ class OverlayItem {
       position: position ?? this.position,
       color: color ?? this.color,
       size: size ?? this.size,
+      scale: scale ?? this.scale,
+      rotation: rotation ?? this.rotation,
     );
   }
 }
@@ -98,6 +106,16 @@ class EditorNotifier extends StateNotifier<EditorState> {
     state = state.copyWith(
       overlays: state.overlays
           .map((e) => e.id == id ? e.copyWith(position: newPosition) : e)
+          .toList(),
+    );
+  }
+
+  void updateOverlayTransform(String id, Offset newPosition, double newScale, double newRotation) {
+    state = state.copyWith(
+      overlays: state.overlays
+          .map((e) => e.id == id
+              ? e.copyWith(position: newPosition, scale: newScale, rotation: newRotation)
+              : e)
           .toList(),
     );
   }
