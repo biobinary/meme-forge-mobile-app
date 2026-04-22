@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -16,7 +15,7 @@ class CropScreen extends StatefulWidget {
 }
 
 class _CropScreenState extends State<CropScreen> {
-  // Rasio aspek yang tersedia. null = Free.
+  
   static const _ratios = <String, double?>{
     'Free': null,
     '1:1': 1.0,
@@ -60,8 +59,9 @@ class _CropScreenState extends State<CropScreen> {
     }
   }
 
-  // Menghitung imageRect berdasarkan previewSize dan dimensi gambar asli
+
   void _recalculateRects(Size previewSize) {
+
     if (!_imageLoaded || _uiImage == null) return;
     if (previewSize == _previewSize && _imageRect != Rect.zero) return;
 
@@ -70,7 +70,6 @@ class _CropScreenState extends State<CropScreen> {
     final imgW = _uiImage!.width.toDouble();
     final imgH = _uiImage!.height.toDouble();
 
-    // BoxFit.contain
     final scaleX = previewSize.width / imgW;
     final scaleY = previewSize.height / imgH;
     final scale = math.min(scaleX, scaleY);
@@ -217,7 +216,6 @@ class _CropScreenState extends State<CropScreen> {
     _activeHandle = null;
   }
 
-  // Memaksa rasio pada crop rect berdasarkan handle yang digeser
   Rect _enforceRatio(Rect r, double ratio, _DragHandle handle) {
     switch (handle) {
       case _DragHandle.topLeft:
@@ -231,14 +229,12 @@ class _CropScreenState extends State<CropScreen> {
     }
   }
 
-  // ── Apply Crop ─────────────────────────────────────────────────────────────
-
   Future<void> _applyCrop() async {
     if (_uiImage == null || _imageRect == Rect.zero) return;
     setState(() => _isApplying = true);
 
     try {
-      // Konversi cropRect dari koordinat preview ke koordinat gambar asli
+
       final scaleX = _uiImage!.width / _imageRect.width;
       final scaleY = _uiImage!.height / _imageRect.height;
 

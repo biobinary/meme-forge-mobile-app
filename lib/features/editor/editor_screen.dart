@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/providers/image_provider.dart';
 import '../../core/providers/editor_provider.dart';
 import 'crop_screen.dart';
+import 'processing_screen.dart';
 
 const List<String> _fontOptions = [
   'Anton',
@@ -26,7 +27,6 @@ const List<Color> _colorOptions = [
   Colors.black,
 ];
 
-// Helper: dapatkan TextStyle berdasarkan nama font
 TextStyle _getMemeTextStyle({
   required String font,
   double fontSize = 42,
@@ -53,7 +53,6 @@ TextStyle _getMemeTextStyle({
   }
 }
 
-// Helper: gaya dasar font untuk chip label preview
 TextStyle _getBaseFontStyle(String font) {
   switch (font) {
     case 'Oswald':
@@ -67,7 +66,7 @@ TextStyle _getBaseFontStyle(String font) {
   }
 }
 
-class EditorScreen extends ConsumerWidget {
+class EditorScreen extends ConsumerStatefulWidget {
   const EditorScreen({
     super.key,
     required this.imageFile,
@@ -76,20 +75,36 @@ class EditorScreen extends ConsumerWidget {
   final File imageFile;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<EditorScreen> createState() => _EditorScreenState();
+}
+
+class _EditorScreenState extends ConsumerState<EditorScreen> {
+
+  final GlobalKey _canvasKey = GlobalKey();
+  final GlobalKey<_EditorCanvasState> _editorCanvasKey = GlobalKey<_EditorCanvasState>();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(editorProvider.notifier).clear();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final currentImage = ref.watch(selectedImageProvider) ?? imageFile;
+    final currentImage = ref.watch(selectedImageProvider) ?? widget.imageFile;
     final editorState = ref.watch(editorProvider);
 
     return Scaffold(
       backgroundColor: Colors.black,
       extendBodyBehindAppBar: false,
       appBar: AppBar(
-        // Solid opaque bar — no longer overlays the canvas
         backgroundColor: const Color(0xFF18181B),
         foregroundColor: Colors.white,
         elevation: 0,
-        // Crisp Neo-Brutalism bottom border
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1.5),
           child: Container(
@@ -130,12 +145,21 @@ class EditorScreen extends ConsumerWidget {
                 ),
               ),
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                        'Selesai diklik! Fitur simpan/bagikan ada di Tahap 3.'),
+                _editorCanvasKey.currentState?.prepareForExport();
+                Navigator.of(context).push(
+                  PageRouteBuilder<void>(
+                    pageBuilder: (_, __, ___) => ProcessingScreen(
+                      canvasKey: _canvasKey,
+                      sourceFile: currentImage,
+                    ),
+                    transitionsBuilder: (_, animation, __, child) {
+                      return FadeTransition(opacity: animation, child: child);
+                    },
+                    transitionDuration: const Duration(milliseconds: 300),
                   ),
-                );
+                ).then((_) {
+                  _editorCanvasKey.currentState?.restoreAfterExport();
+                });
               },
               child: Text(
                 'Selesai',
@@ -153,15 +177,15 @@ class EditorScreen extends ConsumerWidget {
       ),
       body: Column(
         children: [
-          // ── Canvas Editor ──────────────────────────────────────────────
           Expanded(
             child: _EditorCanvas(
+              key: _editorCanvasKey,
+              canvasKey: _canvasKey,
               imageFile: currentImage,
               editorState: editorState,
             ),
           ),
 
-          // ── Bottom Toolbar ─────────────────────────────────────────────
           _EditorToolbar(
             imageFile: currentImage,
             colorScheme: colorScheme,
@@ -173,23 +197,27 @@ class EditorScreen extends ConsumerWidget {
 }
 
 class _EditorCanvas extends ConsumerStatefulWidget {
+  
   const _EditorCanvas({
+    super.key,
+    required this.canvasKey,
     required this.imageFile,
     required this.editorState,
   });
 
+  final GlobalKey canvasKey;
   final File imageFile;
   final EditorState editorState;
 
   @override
   ConsumerState<_EditorCanvas> createState() => _EditorCanvasState();
+
 }
 
 class _EditorCanvasState extends ConsumerState<_EditorCanvas> {
+
   String? _activeOverlayId;
 
-  // Registry of GlobalKeys for each sticker widget so we can locate their
-  // bounding boxes in screen-space to correctly place the delete button.
   final Map<String, GlobalKey> _stickerKeys = {};
 
   ColorFilter _getFilter(String filter) {
@@ -221,20 +249,25 @@ class _EditorCanvasState extends ConsumerState<_EditorCanvas> {
     }
   }
 
-  Offset? _getStickerGlobalPosition(String overlayId) {
-    final key = _stickerKeys[overlayId];
-    if (key == null) return null;
-    final renderBox = key.currentContext?.findRenderObject() as RenderBox?;
-    if (renderBox == null || !renderBox.hasSize) return null;
-
-    return renderBox.localToGlobal(
-      Offset(renderBox.size.width / 2, renderBox.size.height / 2),
-    );
-  }
-
   bool _isDragging = false;
   bool _isNearTrash = false;
+  bool _isExporting = false;
   final GlobalKey _trashKey = GlobalKey();
+
+  void prepareForExport() {
+    setState(() {
+      _activeOverlayId = null;
+      _isExporting = true;
+    });
+  }
+
+  void restoreAfterExport() {
+    if (mounted) {
+      setState(() {
+        _isExporting = false;
+      });
+    }
+  }
 
   void _checkIfNearTrash(Offset globalPosition) {
     final trashBox = _trashKey.currentContext?.findRenderObject() as RenderBox?;
@@ -288,85 +321,87 @@ class _EditorCanvasState extends ConsumerState<_EditorCanvas> {
                 child: SizedBox(
                   width: constraints.maxWidth,
                   height: constraints.maxHeight,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // ── Background Image ────────────────────────────────────
-                      ColorFiltered(
-                        colorFilter: _getFilter(widget.editorState.activeFilter),
-                        child: widget.editorState.croppedImageBytes != null
-                            ? Image.memory(
-                                widget.editorState.croppedImageBytes!,
-                                fit: BoxFit.contain,
-                              )
-                            : Image.file(
-                                widget.imageFile,
-                                fit: BoxFit.contain,
+                  child: Center(
+                    child: RepaintBoundary(
+                      key: widget.canvasKey,
+                      child: Stack(
+                        clipBehavior: _isExporting ? Clip.hardEdge : Clip.none,
+                        alignment: Alignment.center,
+                        children: [
+                            // ── Background Image & Texts ────────────────────────
+                            ColorFiltered(
+                              colorFilter: _getFilter(widget.editorState.activeFilter),
+                              child: widget.editorState.croppedImageBytes != null
+                                  ? Image.memory(
+                                      widget.editorState.croppedImageBytes!,
+                                    )
+                                  : Image.file(
+                                      widget.imageFile,
+                                    ),
+                            ),
+                            if (hasTop)
+                              Positioned(
+                                top: 16,
+                                left: 16,
+                                right: 16,
+                                child: GestureDetector(
+                                  onLongPress: () => ref
+                                      .read(editorProvider.notifier)
+                                      .clearMemeText(MemeTextSlot.top),
+                                  child: _MemeTextWidget(
+                                    text: widget.editorState.topText!,
+                                    font: widget.editorState.memeFont,
+                                    color: widget.editorState.memeColor,
+                                  ),
+                                ),
                               ),
+                            if (hasBottom)
+                              Positioned(
+                                bottom: 16,
+                                left: 16,
+                                right: 16,
+                                child: GestureDetector(
+                                  onLongPress: () => ref
+                                      .read(editorProvider.notifier)
+                                      .clearMemeText(MemeTextSlot.bottom),
+                                  child: _MemeTextWidget(
+                                    text: widget.editorState.bottomText!,
+                                    font: widget.editorState.memeFont,
+                                    color: widget.editorState.memeColor,
+                                  ),
+                                ),
+                              ),
+
+                            // ── Stickers ────────────────────────────────────────
+                            ...widget.editorState.overlays.map((item) {
+                              return _DraggableSticker(
+                                key: ValueKey(item.id),
+                                stickerKey: _stickerKeys[item.id]!,
+                                item: item,
+                                isActive: _activeOverlayId == item.id,
+                                onTap: () => setState(() => _activeOverlayId = item.id),
+                                onDragStart: () => setState(() => _isDragging = true),
+                                onDragUpdate: (globalPos) => _checkIfNearTrash(globalPos),
+                                onDragEnd: (globalPos) {
+                                  if (_isNearTrash) {
+                                    ref.read(editorProvider.notifier).removeOverlay(item.id);
+                                    setState(() => _activeOverlayId = null);
+                                  }
+                                  setState(() {
+                                    _isDragging = false;
+                                    _isNearTrash = false;
+                                  });
+                                },
+                                onTransformChanged: () => setState(() {}),
+                              );
+                            }),
+                          ],
+                        ),
                       ),
-
-                      ...widget.editorState.overlays.map((item) {
-                        return _DraggableSticker(
-                          key: ValueKey(item.id),
-                          stickerKey: _stickerKeys[item.id]!,
-                          item: item,
-                          isActive: _activeOverlayId == item.id,
-                          onTap: () => setState(() => _activeOverlayId = item.id),
-                          onDragStart: () => setState(() => _isDragging = true),
-                          onDragUpdate: (globalPos) => _checkIfNearTrash(globalPos),
-                          onDragEnd: (globalPos) {
-                            if (_isNearTrash) {
-                              ref.read(editorProvider.notifier).removeOverlay(item.id);
-                              setState(() => _activeOverlayId = null);
-                            }
-                            setState(() {
-                              _isDragging = false;
-                              _isNearTrash = false;
-                            });
-                          },
-                          // Notify canvas to repaint
-                          onTransformChanged: () => setState(() {}),
-                        );
-                      }),
-
-                      if (hasTop)
-                        Positioned(
-                          top: 16,
-                          left: 16,
-                          right: 16,
-                          child: GestureDetector(
-                            onLongPress: () => ref
-                                .read(editorProvider.notifier)
-                                .clearMemeText(MemeTextSlot.top),
-                            child: _MemeTextWidget(
-                              text: widget.editorState.topText!,
-                              font: widget.editorState.memeFont,
-                              color: widget.editorState.memeColor,
-                            ),
-                          ),
-                        ),
-
-                      if (hasBottom)
-                        Positioned(
-                          bottom: 16,
-                          left: 16,
-                          right: 16,
-                          child: GestureDetector(
-                            onLongPress: () => ref
-                                .read(editorProvider.notifier)
-                                .clearMemeText(MemeTextSlot.bottom),
-                            child: _MemeTextWidget(
-                              text: widget.editorState.bottomText!,
-                              font: widget.editorState.memeFont,
-                              color: widget.editorState.memeColor,
-                            ),
-                          ),
-                        ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
 
             // ── Trash Bin UI ──────────────────────────────────────────────
             Positioned(
@@ -532,18 +567,13 @@ class _DraggableStickerState extends ConsumerState<_DraggableSticker> {
             ..scale(_localScale)
             ..rotateZ(_localRotation),
           child: Container(
-            // Transparent bleed area keeps the gesture area comfortable.
             padding: EdgeInsets.all(16 * invScale),
             color: Colors.transparent,
             child: Container(
-              // stickerKey tracks the visible bounding box so the parent
-              // can place the delete button correctly in screen space.
               key: widget.stickerKey,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               decoration: widget.isActive
                   ? BoxDecoration(
-                      // Use invScale so the border stays ~3px in screen space
-                      // regardless of how much the sticker has been scaled.
                       border: Border.all(
                         color: const Color(0xFFFFD500),
                         width: 3.0 * invScale,
@@ -572,6 +602,7 @@ class _DraggableStickerState extends ConsumerState<_DraggableSticker> {
 }
 
 class _MemeTextWidget extends StatelessWidget {
+  
   const _MemeTextWidget({
     required this.text,
     required this.font,
@@ -590,19 +621,16 @@ class _MemeTextWidget extends StatelessWidget {
       ..strokeJoin = StrokeJoin.round
       ..color = Colors.black;
 
-    // SizedBox.expand agar text center-align bekerja di seluruh lebar
     return SizedBox(
       width: double.infinity,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Stroke / outline layer
           Text(
             text,
             textAlign: TextAlign.center,
             style: _getMemeTextStyle(font: font, foreground: strokePaint),
           ),
-          // Fill layer
           Text(
             text,
             textAlign: TextAlign.center,
@@ -653,7 +681,6 @@ class _EditorToolbar extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ── Drag handle ──────────────────────────────────────
                     Center(
                       child: Container(
                         width: 40,
@@ -733,7 +760,6 @@ class _EditorToolbar extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
 
-                    // ── Teks Atas ─────────────────────────────────────────
                     _TextSlotInput(
                       label: 'TEKS ATAS',
                       icon: Icons.vertical_align_top_rounded,
@@ -809,7 +835,6 @@ class _EditorToolbar extends ConsumerWidget {
                     ),
                     const SizedBox(height: 18),
 
-                    // ── Color Selector ────────────────────────────────────
                     Text(
                       'WARNA TEKS',
                       style: GoogleFonts.nunito(
@@ -861,7 +886,6 @@ class _EditorToolbar extends ConsumerWidget {
                     ),
                     const SizedBox(height: 22),
 
-                    // ── Apply Button ──────────────────────────────────────
                     SizedBox(
                       width: double.infinity,
                       height: 52,
@@ -1229,10 +1253,6 @@ class _TextSlotInput extends StatelessWidget {
     );
   }
 }
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Toolbar Item
-// ──────────────────────────────────────────────────────────────────────────────
 
 class _ToolbarItem extends StatelessWidget {
   const _ToolbarItem({

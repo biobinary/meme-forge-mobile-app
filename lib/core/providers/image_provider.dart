@@ -3,40 +3,21 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
-// ---------------------------------------------------------------------------
-// Provider: menyimpan File? gambar yang dipilih (nullable)
-// ---------------------------------------------------------------------------
-
-/// StateProvider untuk menyimpan gambar yang dipilih.
-/// Null berarti belum ada gambar yang dipilih.
-final selectedImageProvider = StateProvider<File?>((ref) => null);
-
-// ---------------------------------------------------------------------------
-// Provider: ImagePickerService — singleton ImagePicker
-// ---------------------------------------------------------------------------
+final selectedImageProvider = StateProvider.autoDispose<File?>((ref) => null);
 
 final imagePickerProvider = Provider<ImagePicker>((ref) {
   return ImagePicker();
 });
 
-// ---------------------------------------------------------------------------
-// AsyncNotifier: menangani logika pick image secara terpusat
-// ---------------------------------------------------------------------------
-
-/// Notifier yang bertanggung jawab memilih gambar dari galeri atau kamera,
-/// lalu menyimpannya ke [selectedImageProvider].
 class ImagePickerNotifier extends AsyncNotifier<void> {
-  @override
-  Future<void> build() async {
-    // Tidak ada inisialisasi awal
-  }
 
-  /// Membuka galeri foto
+  @override
+  Future<void> build() async { }
+
   Future<File?> pickFromGallery(WidgetRef ref) async {
     return _pick(ref, ImageSource.gallery);
   }
 
-  /// Membuka kamera
   Future<File?> pickFromCamera(WidgetRef ref) async {
     return _pick(ref, ImageSource.camera);
   }
@@ -47,7 +28,7 @@ class ImagePickerNotifier extends AsyncNotifier<void> {
       final picker = ref.read(imagePickerProvider);
       final XFile? xFile = await picker.pickImage(
         source: source,
-        imageQuality: 85, // hemat memori, tetap tajam
+        imageQuality: 85, 
         maxWidth: 2000,
         maxHeight: 2000,
       );
