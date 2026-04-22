@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "482108877804",
+    "project_id": "beautiful-mobile-app",
+    "storage_bucket": "beautiful-mobile-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:482108877804:android:8946269b6d091ece2b6ec9",
+        "android_client_info": {
+          "package_name": "com.example.flutter_beautiful_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBS1iBbgqGCTbO0AkKu-6PxVEr6Kx4HEH8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
