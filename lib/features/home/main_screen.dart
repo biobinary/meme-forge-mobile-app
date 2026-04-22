@@ -26,45 +26,107 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
     return Scaffold(
       body: _screens[_currentIndex],
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(24, 0, 24, 20),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
               color: colorScheme.onSurface,
               width: 2,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: colorScheme.onSurface,
+                offset: const Offset(4, 4),
+                blurRadius: 0,
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildNavItem(
+                index: 0,
+                label: 'Home',
+                icon: Icons.home_outlined,
+                activeIcon: Icons.home_rounded,
+                colorScheme: colorScheme,
+              ),
+              _buildNavItem(
+                index: 1,
+                label: 'Profil',
+                icon: Icons.person_outline_rounded,
+                activeIcon: Icons.person_rounded,
+                colorScheme: colorScheme,
+              ),
+            ],
           ),
         ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
-          backgroundColor: colorScheme.surface,
-          selectedItemColor: colorScheme.primary,
-          unselectedItemColor: colorScheme.onSurfaceVariant,
-          selectedLabelStyle: const TextStyle(
-            fontWeight: FontWeight.w800,
+      ),
+    );
+  }
+
+  Widget _buildNavItem({
+    required int index,
+    required String label,
+    required IconData icon,
+    required IconData activeIcon,
+    required ColorScheme colorScheme,
+  }) {
+    final isSelected = _currentIndex == index;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _currentIndex = index),
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? colorScheme.primary.withOpacity(0.15) : Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
           ),
-          unselectedLabelStyle: const TextStyle(
-            fontWeight: FontWeight.w600,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: Icon(
+                  isSelected ? activeIcon : icon,
+                  key: ValueKey<bool>(isSelected),
+                  color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: 4),
+              AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 300),
+                style: TextStyle(
+                  color: isSelected ? colorScheme.onSurface : colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w900 : FontWeight.w600,
+                  fontFamily: 'Nunito',
+                ),
+                child: Text(label),
+              ),
+              if (isSelected)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Container(
+                    width: 4,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: colorScheme.primary,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
           ),
-          type: BottomNavigationBarType.fixed,
-          elevation: 0,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home_rounded),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline_rounded),
-              activeIcon: Icon(Icons.person_rounded),
-              label: 'Profil',
-            ),
-          ],
         ),
       ),
     );
