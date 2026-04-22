@@ -530,10 +530,9 @@ class _DraggableStickerState extends ConsumerState<_DraggableSticker> {
             _localRotation = _baseRotation + details.rotation;
             _localPosition += details.focalPointDelta;
           });
-          // Notify parent so the delete button overlay follows in real-time.
+
           widget.onTransformChanged();
 
-          // Calculate global position for trash detection
           final renderBox = widget.stickerKey.currentContext?.findRenderObject() as RenderBox?;
           if (renderBox != null) {
             final globalPos = renderBox.localToGlobal(
@@ -582,7 +581,6 @@ class _DraggableStickerState extends ConsumerState<_DraggableSticker> {
                       color: Colors.white.withValues(alpha: 0.1),
                     )
                   : BoxDecoration(
-                      // Transparent border keeps the layout identical.
                       border: Border.all(
                         color: Colors.transparent,
                         width: 3.0 * invScale,

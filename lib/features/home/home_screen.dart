@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/image_provider.dart';
+import '../../core/providers/auth_provider.dart';
 import '../editor/editor_screen.dart';
 
 /// HomeScreen — halaman utama MemeMaker
@@ -18,6 +19,7 @@ class HomeScreen extends ConsumerWidget {
 
     // Watch state loading/error dari ImagePickerNotifier
     final pickerState = ref.watch(imagePickerNotifierProvider);
+    final userProfileAsync = ref.watch(userProfileProvider);
 
     // Listener: navigasi ke EditorScreen setelah gambar berhasil dipilih
     ref.listen<File?>(selectedImageProvider, (previous, next) {
@@ -59,6 +61,17 @@ class HomeScreen extends ConsumerWidget {
               backgroundColor: colorScheme.surface,
               floating: false,
               pinned: true,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.logout_rounded),
+                  color: colorScheme.error,
+                  onPressed: () {
+                    ref.read(authServiceProvider).signOut();
+                  },
+                  tooltip: 'Logout',
+                ),
+                const SizedBox(width: 8),
+              ],
             ),
 
             // ── Body Content ─────────────────────────────────────────────
@@ -73,11 +86,27 @@ class HomeScreen extends ConsumerWidget {
                     // Hero illustration / logo area
                     _HeroIllustration(colorScheme: colorScheme),
 
-                    const SizedBox(height: 48),
+                    const SizedBox(height: 32),
+
+                    userProfileAsync.when(
+                      data: (profile) => Text(
+                        'Halo, ${profile?['username'] ?? 'Meme Maker'}! 👋',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: colorScheme.primary,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      loading: () => const CircularProgressIndicator(),
+                      error: (_, __) => const SizedBox(),
+                    ),
+
+                    const SizedBox(height: 12),
 
                     // Headline
                     Text(
                       'Buat Meme Kamu Sendiri!',
+
                       style: theme.textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                         color: colorScheme.onSurface,
