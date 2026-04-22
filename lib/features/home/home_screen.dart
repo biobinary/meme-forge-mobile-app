@@ -61,17 +61,7 @@ class HomeScreen extends ConsumerWidget {
               backgroundColor: colorScheme.surface,
               floating: false,
               pinned: true,
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.logout_rounded),
-                  color: colorScheme.error,
-                  onPressed: () {
-                    ref.read(authServiceProvider).signOut();
-                  },
-                  tooltip: 'Logout',
-                ),
-                const SizedBox(width: 8),
-              ],
+
             ),
 
             // ── Body Content ─────────────────────────────────────────────
