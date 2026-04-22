@@ -6,6 +6,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ResultScreen extends StatefulWidget {
   final Uint8List pngBytes;
@@ -19,6 +22,7 @@ class ResultScreen extends StatefulWidget {
 class _ResultScreenState extends State<ResultScreen> {
   final TextEditingController _captionController = TextEditingController();
   bool _isCaptionEmpty = true;
+  bool _isUploading = false;
 
   @override
   void initState() {
@@ -41,29 +45,30 @@ class _ResultScreenState extends State<ResultScreen> {
 
   Future<void> _downloadImage() async {
     try {
-      // Logic permission untuk Android
+      
       if (Platform.isAndroid) {
-        // Cek permission berdasarkan versi Android
-        // Android 13 (SDK 33) ke atas menggunakan Permission.photos
-        // Android < 13 menggunakan Permission.storage
-        
+      
         bool isGranted = false;
-        
-        // Cek status saat ini
+      
         if (await Permission.storage.isGranted || await Permission.photos.isGranted) {
           isGranted = true;
+      
         } else {
-          // Request storage permission dahulu (untuk Android < 13)
+
           final storageStatus = await Permission.storage.request();
+          
           if (storageStatus.isGranted) {
             isGranted = true;
+          
           } else {
-            // Jika storage ditolak, mungkin ini Android 13+, coba request photos
+
             final photosStatus = await Permission.photos.request();
             if (photosStatus.isGranted || photosStatus.isLimited) {
               isGranted = true;
             }
+
           }
+
         }
 
         if (!isGranted) {
@@ -124,6 +129,63 @@ class _ResultScreenState extends State<ResultScreen> {
     }
   }
 
+  Future<void> _uploadAndSaveMeme() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Anda harus login terlebih dahulu!')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isUploading = true;
+    });
+
+    try {
+      
+      final fileName = 'meme_${DateTime.now().millisecondsSinceEpoch}.png';
+      
+      await Supabase.instance.client.storage
+          .from('memes-bucket')
+          .uploadBinary(
+            fileName,
+            widget.pngBytes,
+            fileOptions: const FileOptions(contentType: 'image/png'),
+          );
+
+      final publicUrl = Supabase.instance.client.storage
+          .from('memes-bucket')
+          .getPublicUrl(fileName);
+
+      await FirebaseFirestore.instance.collection('memes').add({
+        'user_id': user.uid,
+        'image_url': publicUrl,
+        'caption': _captionController.text.trim(),
+        'created_at': FieldValue.serverTimestamp(),
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Meme berhasil diupload!')),
+        );
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal mengupload meme: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -134,21 +196,25 @@ class _ResultScreenState extends State<ResultScreen> {
         title: const Text('READY TO FORGE'),
         actions: [
           TextButton(
-            onPressed: _isCaptionEmpty ? null : () {
-              // TODO: Implement actual upload logic later
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Upload fitur segera hadir!')),
-              );
-            },
-            child: Text(
-              'UPLOAD',
-              style: GoogleFonts.anton(
-                fontSize: 18,
-                color: _isCaptionEmpty 
-                    ? (isDark ? Colors.white24 : Colors.black26)
-                    : (isDark ? const Color(0xFFFFD500) : Colors.black),
-              ),
-            ),
+            onPressed: (_isCaptionEmpty || _isUploading) ? null : _uploadAndSaveMeme,
+            child: _isUploading
+                ? SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 3,
+                      color: isDark ? const Color(0xFFFFD500) : Colors.black,
+                    ),
+                  )
+                : Text(
+                    'UPLOAD',
+                    style: GoogleFonts.anton(
+                      fontSize: 18,
+                      color: (_isCaptionEmpty || _isUploading) 
+                          ? (isDark ? Colors.white24 : Colors.black26)
+                          : (isDark ? const Color(0xFFFFD500) : Colors.black),
+                    ),
+                  ),
           ),
           const SizedBox(width: 8),
         ],

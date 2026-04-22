@@ -7,6 +7,7 @@ import 'features/auth/login_screen.dart';
 import 'core/providers/auth_provider.dart';
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -14,6 +15,11 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  await Supabase.initialize(
+    url: '[some_url]',
+    anonKey: '[some_key]',
   );
 
   runApp(
