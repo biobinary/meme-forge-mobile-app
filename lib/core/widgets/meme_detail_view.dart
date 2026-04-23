@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/meme_model.dart';
+import '../providers/auth_provider.dart';
+import '../providers/meme_provider.dart';
 
-class MemeDetailView extends StatelessWidget {
+class MemeDetailView extends ConsumerWidget {
   final MemeModel meme;
 
   const MemeDetailView({
@@ -11,9 +14,13 @@ class MemeDetailView extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final authState = ref.watch(authStateProvider);
+    final currentUserId = authState.value?.uid;
+    final isOwner = currentUserId == meme.userId;
+
     final dateStr = meme.createdAt != null
         ? '${meme.createdAt!.day}/${meme.createdAt!.month}/${meme.createdAt!.year}'
         : '-';
@@ -140,9 +147,192 @@ class MemeDetailView extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 32),
+
+            // ── Owner Actions ──
+            if (isOwner) ...[
+              const Divider(height: 32, thickness: 1),
+              Text(
+                'OWNER ACTIONS',
+                style: GoogleFonts.anton(
+                  fontSize: 14,
+                  color: colorScheme.onSurface.withOpacity(0.5),
+                  letterSpacing: 1.5,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () => _showEditCaptionDialog(context, ref),
+                icon: const Icon(Icons.edit_note_rounded),
+                label: const Text('EDIT CAPTION'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => _showDeleteConfirmation(context, ref),
+                icon: const Icon(Icons.delete_outline_rounded),
+                label: const Text('DELETE MEME'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 56),
+                  side: const BorderSide(color: Colors.redAccent, width: 2),
+                  foregroundColor: Colors.redAccent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  textStyle: GoogleFonts.nunito(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 40),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showEditCaptionDialog(BuildContext context, WidgetRef ref) {
+    final controller = TextEditingController(text: meme.caption);
+    final colorScheme = Theme.of(context).colorScheme;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          'EDIT CAPTION',
+          style: GoogleFonts.anton(letterSpacing: 1),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: Colors.black, width: 2),
+        ),
+        content: TextField(
+          controller: controller,
+          maxLines: 3,
+          autofocus: true,
+          style: GoogleFonts.nunito(fontWeight: FontWeight.w600),
+          decoration: InputDecoration(
+            hintText: 'Tulis caption baru...',
+            filled: true,
+            fillColor: colorScheme.surfaceContainerHighest.withOpacity(0.3),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.black, width: 1.5),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.black, width: 1.5),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(
+              'BATAL',
+              style: GoogleFonts.nunito(
+                fontWeight: FontWeight.w800,
+                color: colorScheme.onSurface,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final newCaption = controller.text.trim();
+              if (newCaption.isEmpty) return;
+
+              Navigator.pop(dialogContext);
+              
+              try {
+                await ref.read(memeRepositoryProvider).updateMemeCaption(meme.id!, newCaption);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Caption berhasil diperbarui!')),
+                  );
+                  Navigator.pop(context); // Close detail view to refresh
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Gagal memperbarui caption: $e')),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size(100, 45),
+              backgroundColor: colorScheme.primary,
+              foregroundColor: colorScheme.onPrimary,
+            ),
+            child: const Text('SIMPAN'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          'HAPUS MEME?',
+          style: GoogleFonts.anton(letterSpacing: 1),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: Colors.black, width: 2),
+        ),
+        content: Text(
+          'Apakah kamu yakin ingin menghapus meme ini? Tindakan ini tidak bisa dibatalkan.',
+          style: GoogleFonts.nunito(fontWeight: FontWeight.w600),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(
+              'TIDAK',
+              style: GoogleFonts.nunito(
+                fontWeight: FontWeight.w800,
+                color: colorScheme.onSurface,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(dialogContext); // Close dialog
+              
+              try {
+                await ref.read(memeRepositoryProvider).deleteMeme(meme.id!, meme.imageUrl);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Meme berhasil dihapus!')),
+                  );
+                  Navigator.pop(context); // Return to previous screen
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Gagal menghapus meme: $e')),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size(100, 45),
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('HAPUS'),
+          ),
+        ],
       ),
     );
   }
