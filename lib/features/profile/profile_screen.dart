@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/meme_provider.dart';
+import '../../core/widgets/meme_detail_view.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -22,6 +23,16 @@ class ProfileScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('PROFIL'),
         centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed: () {
+              ref.read(authServiceProvider).signOut();
+            },
+            icon: const Icon(Icons.logout_rounded),
+            tooltip: 'Logout',
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: SafeArea(
         child: Column(
@@ -145,45 +156,56 @@ class ProfileScreen extends ConsumerWidget {
                     itemCount: memes.length,
                     itemBuilder: (context, index) {
                       final meme = memes[index];
-                      return Container(
-                        decoration: BoxDecoration(
-                          color: colorScheme.surface,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: colorScheme.onSurface,
-                            width: 1.5,
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => MemeDetailView(meme: meme),
+                              fullscreenDialog: true,
+                            ),
+                          );
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: colorScheme.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: colorScheme.onSurface,
+                              width: 1.5,
+                            ),
                           ),
-                        ),
-                        clipBehavior: Clip.antiAlias,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(
-                              child: Image.network(
-                                meme.imageUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    color: colorScheme.surfaceContainerHighest,
-                                    child: const Icon(Icons.broken_image_outlined),
-                                  );
-                                },
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.all(8.0),
-                              color: colorScheme.surface,
-                              child: Text(
-                                meme.caption,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  fontWeight: FontWeight.w800,
+                          clipBehavior: Clip.antiAlias,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(
+                                child: Image.network(
+                                  meme.imageUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Container(
+                                      color: colorScheme.surfaceContainerHighest,
+                                      child: const Icon(Icons.broken_image_outlined),
+                                    );
+                                  },
                                 ),
-                                textAlign: TextAlign.center,
                               ),
-                            ),
-                          ],
+                              Container(
+                                padding: const EdgeInsets.all(8.0),
+                                color: colorScheme.surface,
+                                child: Text(
+                                  meme.caption,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     },
@@ -194,40 +216,7 @@ class ProfileScreen extends ConsumerWidget {
               ),
             ),
 
-            // ── Logout Button ──
-            Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () {
-                    ref.read(authServiceProvider).signOut();
-                  },
-                  style: FilledButton.styleFrom(
-                    backgroundColor: colorScheme.error,
-                    foregroundColor: colorScheme.onError,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(
-                        color: colorScheme.onSurface,
-                        width: 2,
-                      ),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    elevation: 4,
-                    shadowColor: Colors.black,
-                  ),
-                  icon: const Icon(Icons.logout_rounded),
-                  label: const Text(
-                    'LOGOUT',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            const SizedBox(height: 24),
           ],
         ),
       ),
