@@ -40,6 +40,57 @@ class MemeDetailView extends ConsumerWidget {
           icon: const Icon(Icons.close_rounded),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          if (isOwner)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert_rounded),
+              offset: const Offset(0, 48),
+              onSelected: (value) {
+                if (value == 'edit') {
+                  _showEditCaptionDialog(context, ref);
+                } else if (value == 'delete') {
+                  _showDeleteConfirmation(context, ref);
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.edit_note_rounded, size: 20),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Edit Caption',
+                        style: GoogleFonts.nunito(fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.delete_outline_rounded,
+                          size: 20, color: Colors.redAccent),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Delete Meme',
+                        style: GoogleFonts.nunito(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.redAccent,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: Colors.black, width: 1),
+              ),
+            ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -149,46 +200,6 @@ class MemeDetailView extends ConsumerWidget {
             ),
             const SizedBox(height: 32),
 
-            // ── Owner Actions ──
-            if (isOwner) ...[
-              const Divider(height: 32, thickness: 1),
-              Text(
-                'OWNER ACTIONS',
-                style: GoogleFonts.anton(
-                  fontSize: 14,
-                  color: colorScheme.onSurface.withOpacity(0.5),
-                  letterSpacing: 1.5,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: () => _showEditCaptionDialog(context, ref),
-                icon: const Icon(Icons.edit_note_rounded),
-                label: const Text('EDIT CAPTION'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: colorScheme.primary,
-                  foregroundColor: colorScheme.onPrimary,
-                ),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: () => _showDeleteConfirmation(context, ref),
-                icon: const Icon(Icons.delete_outline_rounded),
-                label: const Text('DELETE MEME'),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 56),
-                  side: const BorderSide(color: Colors.redAccent, width: 2),
-                  foregroundColor: Colors.redAccent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  textStyle: GoogleFonts.nunito(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
             const SizedBox(height: 40),
           ],
         ),

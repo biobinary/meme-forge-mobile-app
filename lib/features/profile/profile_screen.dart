@@ -193,7 +193,6 @@ class ProfileScreen extends ConsumerWidget {
                               ),
                               Container(
                                 padding: const EdgeInsets.all(8.0),
-                                color: colorScheme.surface,
                                 child: Text(
                                   meme.caption,
                                   maxLines: 1,
