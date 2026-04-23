@@ -163,6 +163,7 @@ class _ResultScreenState extends State<ResultScreen> {
         'image_url': publicUrl,
         'caption': _captionController.text.trim(),
         'created_at': FieldValue.serverTimestamp(),
+        'likes': [],
       });
 
       if (mounted) {
