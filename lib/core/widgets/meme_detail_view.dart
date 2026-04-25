@@ -4,6 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/meme_model.dart';
 import '../providers/auth_provider.dart';
 import '../providers/meme_provider.dart';
+import '../theme/neo_brutal_ui.dart';
+import 'like_button.dart';
+import 'inline_author.dart';
 
 class MemeDetailView extends ConsumerStatefulWidget {
   final MemeModel meme;
@@ -18,7 +21,6 @@ class MemeDetailView extends ConsumerStatefulWidget {
 }
 
 class _MemeDetailViewState extends ConsumerState<MemeDetailView> {
-
   late List<String> _localLikes;
   bool _isLikeLoading = false;
 
@@ -34,7 +36,6 @@ class _MemeDetailViewState extends ConsumerState<MemeDetailView> {
 
     final isLiked = _localLikes.contains(currentUserId);
 
-    // Optimistic update
     setState(() {
       _isLikeLoading = true;
       if (isLiked) {
@@ -51,7 +52,6 @@ class _MemeDetailViewState extends ConsumerState<MemeDetailView> {
             currentlyLiked: isLiked,
           );
     } catch (e) {
-      // Rollback on failure
       if (mounted) {
         setState(() {
           if (isLiked) {
@@ -84,8 +84,7 @@ class _MemeDetailViewState extends ConsumerState<MemeDetailView> {
     final authState = ref.watch(authStateProvider);
     final currentUserId = authState.value?.uid;
     final isOwner = currentUserId == widget.meme.userId;
-    final isLiked =
-        currentUserId != null && _localLikes.contains(currentUserId);
+    final isLiked = currentUserId != null && _localLikes.contains(currentUserId);
 
     final dateStr = widget.meme.createdAt != null
         ? '${widget.meme.createdAt!.day}/${widget.meme.createdAt!.month}/${widget.meme.createdAt!.year}'
@@ -127,8 +126,7 @@ class _MemeDetailViewState extends ConsumerState<MemeDetailView> {
                       const SizedBox(width: 12),
                       Text(
                         'Edit Caption',
-                        style:
-                            GoogleFonts.nunito(fontWeight: FontWeight.w600),
+                        style: GoogleFonts.nunito(fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),
@@ -164,25 +162,15 @@ class _MemeDetailViewState extends ConsumerState<MemeDetailView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-
-            _InlineAuthor(userId: widget.meme.userId),
+            InlineAuthor(userId: widget.meme.userId),
             const SizedBox(height: 12),
-
             Container(
-              decoration: BoxDecoration(
+              decoration: NeoBrutalUI.boxDecoration(
+                context,
                 color: Colors.black,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: colorScheme.onSurface,
-                  width: 2.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: colorScheme.onSurface,
-                    offset: const Offset(8, 8),
-                    blurRadius: 0,
-                  ),
-                ],
+                radius: 20,
+                width: 2.5,
+                hasShadow: true,
               ),
               clipBehavior: Clip.antiAlias,
               child: Image.network(
@@ -200,23 +188,19 @@ class _MemeDetailViewState extends ConsumerState<MemeDetailView> {
                   return Container(
                     height: 300,
                     color: colorScheme.surfaceContainerHighest,
-                    child:
-                        const Icon(Icons.broken_image_outlined, size: 64),
+                    child: const Icon(Icons.broken_image_outlined, size: 64),
                   );
                 },
               ),
             ),
             const SizedBox(height: 24),
-
             Container(
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
+              decoration: NeoBrutalUI.boxDecoration(
+                context,
                 color: colorScheme.primary,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: colorScheme.onSurface,
-                  width: 2,
-                ),
+                radius: 16,
+                width: 2,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -242,10 +226,8 @@ class _MemeDetailViewState extends ConsumerState<MemeDetailView> {
               ),
             ),
             const SizedBox(height: 16),
-
             Row(
               children: [
-                // Date Info Card
                 Expanded(
                   child: _buildInfoCard(
                     context,
@@ -256,14 +238,12 @@ class _MemeDetailViewState extends ConsumerState<MemeDetailView> {
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: _LikeButton(
+                  child: LikeButton(
                     likeCount: _localLikes.length,
                     isLiked: isLiked,
                     isLoading: _isLikeLoading,
                     isLoggedIn: currentUserId != null,
-                    onTap: currentUserId != null
-                        ? () => _handleLikeTap(currentUserId)
-                        : null,
+                    onTap: currentUserId != null ? () => _handleLikeTap(currentUserId) : null,
                   ),
                 ),
               ],
@@ -276,8 +256,7 @@ class _MemeDetailViewState extends ConsumerState<MemeDetailView> {
   }
 
   void _showEditCaptionDialog(BuildContext context, WidgetRef ref) {
-    final controller =
-        TextEditingController(text: widget.meme.caption);
+    final controller = TextEditingController(text: widget.meme.caption);
     final colorScheme = Theme.of(context).colorScheme;
 
     showDialog(
@@ -299,17 +278,14 @@ class _MemeDetailViewState extends ConsumerState<MemeDetailView> {
           decoration: InputDecoration(
             hintText: 'Tulis caption baru...',
             filled: true,
-            fillColor:
-                colorScheme.surfaceContainerHighest.withOpacity(0.3),
+            fillColor: colorScheme.surfaceContainerHighest.withOpacity(0.3),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide:
-                  const BorderSide(color: Colors.black, width: 1.5),
+              borderSide: const BorderSide(color: Colors.black, width: 1.5),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide:
-                  const BorderSide(color: Colors.black, width: 1.5),
+              borderSide: const BorderSide(color: Colors.black, width: 1.5),
             ),
           ),
         ),
@@ -332,22 +308,17 @@ class _MemeDetailViewState extends ConsumerState<MemeDetailView> {
               Navigator.pop(dialogContext);
 
               try {
-                await ref
-                    .read(memeRepositoryProvider)
-                    .updateMemeCaption(widget.meme.id!, newCaption);
+                await ref.read(memeRepositoryProvider).updateMemeCaption(widget.meme.id!, newCaption);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Caption berhasil diperbarui!')),
+                    const SnackBar(content: Text('Caption berhasil diperbarui!')),
                   );
                   Navigator.pop(context);
                 }
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content:
-                            Text('Gagal memperbarui caption: $e')),
+                    SnackBar(content: Text('Gagal memperbarui caption: $e')),
                   );
                 }
               }
@@ -398,21 +369,17 @@ class _MemeDetailViewState extends ConsumerState<MemeDetailView> {
               Navigator.pop(dialogContext);
 
               try {
-                await ref
-                    .read(memeRepositoryProvider)
-                    .deleteMeme(widget.meme.id!, widget.meme.imageUrl);
+                await ref.read(memeRepositoryProvider).deleteMeme(widget.meme.id!, widget.meme.imageUrl);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Meme berhasil dihapus!')),
+                    const SnackBar(content: Text('Meme berhasil dihapus!')),
                   );
                   Navigator.pop(context);
                 }
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content: Text('Gagal menghapus meme: $e')),
+                    SnackBar(content: Text('Gagal menghapus meme: $e')),
                   );
                 }
               }
@@ -440,22 +407,17 @@ class _MemeDetailViewState extends ConsumerState<MemeDetailView> {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: colorScheme.onSurface,
-          width: 1.5,
-        ),
+      decoration: NeoBrutalUI.boxDecoration(
+        context,
+        radius: 16,
+        width: 1.5,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon,
-                  size: 16,
-                  color: colorScheme.onSurface.withOpacity(0.6)),
+              Icon(icon, size: 16, color: colorScheme.onSurface.withOpacity(0.6)),
               const SizedBox(width: 6),
               Text(
                 label,
@@ -481,155 +443,3 @@ class _MemeDetailViewState extends ConsumerState<MemeDetailView> {
     );
   }
 }
-
-
-class _LikeButton extends StatelessWidget {
-  final int likeCount;
-  final bool isLiked;
-  final bool isLoading;
-  final bool isLoggedIn;
-  final VoidCallback? onTap;
-
-  const _LikeButton({
-    required this.likeCount,
-    required this.isLiked,
-    required this.isLoading,
-    required this.isLoggedIn,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    final bgColor = isLiked ? Colors.redAccent : colorScheme.surface;
-    final borderColor =
-        isLiked ? Colors.redAccent : colorScheme.onSurface;
-    final textColor = isLiked ? Colors.white : colorScheme.onSurface;
-    final iconColor = isLiked ? Colors.white : Colors.redAccent;
-    final iconData =
-        isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded;
-
-    return GestureDetector(
-      onTap: isLoading ? null : onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: borderColor, width: 1.5),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  child: isLoading
-                      ? SizedBox(
-                          key: const ValueKey('loading'),
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: iconColor,
-                          ),
-                        )
-                      : Icon(
-                          iconData,
-                          key: ValueKey(isLiked),
-                          size: 16,
-                          color: iconColor,
-                        ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'LIKES',
-                  style: GoogleFonts.anton(
-                    fontSize: 12,
-                    color: textColor.withOpacity(isLiked ? 0.85 : 0.6),
-                    letterSpacing: 1,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            // Like count + tap hint
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  transitionBuilder: (child, animation) =>
-                      ScaleTransition(scale: animation, child: child),
-                  child: Text(
-                    likeCount.toString(),
-                    key: ValueKey(likeCount),
-                    style: GoogleFonts.nunito(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                      color: textColor,
-                    ),
-                  ),
-                ),
-                if (!isLoggedIn)
-                  Icon(Icons.lock_outline_rounded,
-                      size: 14, color: textColor.withOpacity(0.5)),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _InlineAuthor extends ConsumerWidget {
-  final String userId;
-
-  const _InlineAuthor({required this.userId});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    
-    final colorScheme = Theme.of(context).colorScheme;
-    final authorAsync = ref.watch(authorUsernameProvider(userId));
-
-    return authorAsync.when(
-      data: (username) => Align(
-        alignment: Alignment.centerLeft,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: colorScheme.onSurface,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: colorScheme.onSurface, width: 2),
-          ),
-          child: Text(
-            '@${username ?? 'unknown'}',
-            style: GoogleFonts.nunito(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: colorScheme.surface,
-              letterSpacing: 0.2,
-            ),
-          ),
-        ),
-      ),
-      loading: () => Container(
-        width: 90,
-        height: 28,
-        decoration: BoxDecoration(
-          color: colorScheme.onSurface.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-      error: (_, __) => const SizedBox.shrink(),
-    );
-  }
-}
-
