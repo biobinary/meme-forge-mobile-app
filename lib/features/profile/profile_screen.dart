@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/meme_provider.dart';
 import '../../core/widgets/meme_detail_view.dart';
+import 'ai_usage_screen.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -103,6 +104,49 @@ class ProfileScreen extends ConsumerWidget {
                 ),
               ),
             ),
+            
+            // ── AI Usage Card ──
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+              child: InkWell(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AIUsageScreen()),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: colorScheme.onSurface, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: colorScheme.onSurface,
+                        offset: const Offset(4, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.auto_fix_high_rounded, size: 28),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          'MONITORING PENGGUNAAN AI',
+                          style: GoogleFonts.anton(
+                            fontSize: 16,
+                            letterSpacing: 1.1,
+                          ),
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios_rounded, size: 18),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
 
             // ── Memes Section ──
             Padding(
@@ -222,4 +266,3 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 }
-

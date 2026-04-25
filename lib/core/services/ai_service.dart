@@ -1,7 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../config/app_config.dart';
+
+class LimitReachedException implements Exception {
+  final String message;
+  LimitReachedException(this.message);
+  @override
+  String toString() => message;
+}
 
 class AISuggestion {
   final String topText;
@@ -66,7 +74,9 @@ class AIService {
     );
   }
 
-  Future<AISuggestion> getAutoEditSuggestions(File imageFile) async {
+  Future<AISuggestion> getAutoEditSuggestions(File imageFile, String userId) async {
+    await _checkAndIncrementUsage(userId);
+    
     final bytes = await imageFile.readAsBytes();
     
     final prompt = [
@@ -120,6 +130,48 @@ class AIService {
       return AISuggestion.fromJson(json);
     } catch (e) {
       throw Exception('Failed to parse AI response: $e');
+    }
+  }
+
+  Future<void> _checkAndIncrementUsage(String userId) async {
+    final docRef = FirebaseFirestore.instance.collection('ai_usage').doc(userId);
+    final now = DateTime.now();
+    
+    final doc = await docRef.get();
+    
+    if (!doc.exists) {
+      // First time use
+      await docRef.set({
+        'count': 1,
+        'lastReset': FieldValue.serverTimestamp(),
+      });
+      return;
+    }
+
+    final data = doc.data()!;
+    final lastReset = (data['lastReset'] as Timestamp?)?.toDate() ?? now;
+    int count = data['count'] ?? 0;
+
+    // Check if it's a new day
+    final isSameDay = lastReset.year == now.year && 
+                      lastReset.month == now.month && 
+                      lastReset.day == now.day;
+
+    if (!isSameDay) {
+      // New day, reset count
+      await docRef.update({
+        'count': 1,
+        'lastReset': FieldValue.serverTimestamp(),
+      });
+    } else {
+      // Same day, check limit
+      if (count >= 5) {
+        throw LimitReachedException('Kamu telah mencapai batas 5 request AI hari ini. Coba lagi besok!');
+      }
+      
+      await docRef.update({
+        'count': FieldValue.increment(1),
+      });
     }
   }
 }

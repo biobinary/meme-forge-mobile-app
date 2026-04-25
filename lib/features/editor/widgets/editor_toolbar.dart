@@ -8,6 +8,7 @@ import '../utils/editor_utils.dart';
 import '../crop_screen.dart';
 import 'meme_text_widget.dart';
 import '../../../core/services/ai_service.dart';
+import '../../../core/providers/auth_provider.dart';
 
 class EditorToolbar extends ConsumerWidget {
   const EditorToolbar({
@@ -503,11 +504,14 @@ class EditorToolbar extends ConsumerWidget {
 
   Future<void> _autoEditWithAI(BuildContext context, WidgetRef ref) async {
     final aiService = AIService();
+    final user = ref.read(authStateProvider).value;
     
+    if (user == null) return;
+
     try {
       ref.read(aiProcessingProvider.notifier).state = true;
       
-      final suggestion = await aiService.getAutoEditSuggestions(imageFile);
+      final suggestion = await aiService.getAutoEditSuggestions(imageFile, user.uid);
       
       // Cek apakah user sudah menekan cancel saat AI bekerja
       if (!ref.read(aiProcessingProvider)) return;
@@ -553,6 +557,16 @@ class EditorToolbar extends ConsumerWidget {
           const SnackBar(
             content: Text('AI telah mengedit meme kamu! ✨'),
             backgroundColor: Color(0xFFFFD500),
+          ),
+        );
+      }
+    } on LimitReachedException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message),
+            backgroundColor: const Color(0xFFFF5555),
+            duration: const Duration(seconds: 4),
           ),
         );
       }

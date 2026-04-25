@@ -27,3 +27,18 @@ final userProfileProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
   }
   return null;
 });
+final aiUsageProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
+  final user = ref.watch(authStateProvider).value;
+  
+  if (user != null) {
+    final docSnapshot = await FirebaseFirestore.instance
+        .collection('ai_usage')
+        .doc(user.uid)
+        .get();
+        
+    if (docSnapshot.exists) {
+      return docSnapshot.data();
+    }
+  }
+  return null;
+});
