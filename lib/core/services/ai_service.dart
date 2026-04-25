@@ -72,18 +72,26 @@ class AIService {
     final prompt = [
       Content.multi([
         TextPart('''
-          Act as a professional meme creator. Analyze this image and create a funny meme. 
+          Act as a Viral Meme Specialist with deep knowledge of 2024-2025 internet culture. 
+          Analyze this image and create a high-engagement meme.
+          
+          Humor Guidelines:
+          - Use a mix of Gen-Z humor, irony, or relatable everyday struggles.
+          - If the image is chaotic, use surreal humor. If it's a person/pet, use "inner thoughts" style.
+          - Keep captions short and punchy. Use UPPERCASE for that classic meme feel.
           
           Instructions:
-          1. Create witty top and bottom captions relevant to the image content. Use UPPERCASE.
-          2. Suggest a filter from: [Normal, Grayscale, Sepia, Cool Blue]. ONLY use a filter if it enhances the meme's humor or mood. Otherwise, use "Normal".
-          3. Suggest 0-2 stickers (emojis) with coordinates (x, y from 0.0 to 1.0). ONLY add stickers if they significantly increase the humor.
-          4. Suggest the best text styling:
+          1. Captions: Create witty top and bottom text relevant to the visual context.
+          2. Filter: Choose from [Normal, Grayscale, Sepia, Cool Blue]. Use Grayscale for "wasted" or sad vibes, Sepia for "old/classic" vibes, and Cool Blue for "chill/modern" vibes. Default to "Normal".
+          3. Stickers: Suggest 0-2 emojis with coordinates (x, y from 0.0 to 1.0). 
+             - Position them to complement the subject (e.g., a crown on a head, fire on something cool).
+             - CRITICAL: Do NOT cover the eyes or the main subject's face.
+          4. Styling:
              - fontFamily from: [Anton, Oswald, Bebas Neue, Black Ops One].
-             - textColor from: [White, Vibrant Yellow, Orange, Red, Lime, Electric Indigo, Black].
-             - fontSize between 24.0 and 72.0 based on text length and image space.
-
-          Return ONLY a JSON object in this format:
+             - textColor: Choose a color that has MAXIMUM contrast with the image background.
+             - fontSize: Scale between 28.0 and 64.0 based on text length.
+          
+          Return ONLY a JSON object:
           {
             "topText": "CAPTION HERE",
             "bottomText": "CAPTION HERE",
