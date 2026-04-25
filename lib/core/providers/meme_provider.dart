@@ -37,12 +37,22 @@ final randomFeedProvider = FutureProvider.autoDispose<List<MemeModel>>((ref) asy
 
 final memeRepositoryProvider = Provider((ref) => MemeRepository());
 
+final authorUsernameProvider =
+    FutureProvider.family<String?, String>((ref, userId) async {
+  if (userId.isEmpty) return null;
+  final doc = await FirebaseFirestore.instance
+      .collection('users')
+      .doc(userId)
+      .get();
+  if (!doc.exists) return null;
+  return doc.data()?['username'] as String?;
+});
+
 class MemeRepository {
   final _db = FirebaseFirestore.instance;
 
   Future<List<MemeModel>> getRandomMemes({int limit = 10}) async {
-    // Fetch a larger chunk and shuffle in-memory for randomness
-    // In a real production app with millions of docs, we'd use a different strategy
+    
     final snapshot = await _db
         .collection('memes')
         .limit(50)
@@ -60,6 +70,23 @@ class MemeRepository {
     await _db.collection('memes').doc(memeId).update({
       'caption': newCaption,
     });
+  }
+
+  Future<void> toggleLike({
+    required String memeId,
+    required String userId,
+    required bool currentlyLiked,
+  }) async {
+    final docRef = _db.collection('memes').doc(memeId);
+    if (currentlyLiked) {
+      await docRef.update({
+        'likes': FieldValue.arrayRemove([userId]),
+      });
+    } else {
+      await docRef.update({
+        'likes': FieldValue.arrayUnion([userId]),
+      });
+    }
   }
 
   Future<void> deleteMeme(String memeId, String imageUrl) async {
