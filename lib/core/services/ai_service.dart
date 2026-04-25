@@ -8,12 +8,18 @@ class AISuggestion {
   final String bottomText;
   final String filter;
   final List<AISticker> stickers;
+  final String fontFamily;
+  final String textColor;
+  final double fontSize;
 
   AISuggestion({
     required this.topText,
     required this.bottomText,
     required this.filter,
     required this.stickers,
+    required this.fontFamily,
+    required this.textColor,
+    required this.fontSize,
   });
 
   factory AISuggestion.fromJson(Map<String, dynamic> json) {
@@ -24,6 +30,9 @@ class AISuggestion {
       stickers: (json['stickers'] as List? ?? [])
           .map((s) => AISticker.fromJson(s))
           .toList(),
+      fontFamily: json['fontFamily'] ?? 'Anton',
+      textColor: json['textColor'] ?? 'White',
+      fontSize: (json['fontSize'] as num? ?? 42).toDouble(),
     );
   }
 }
@@ -64,11 +73,16 @@ class AIService {
       Content.multi([
         TextPart('''
           Act as a professional meme creator. Analyze this image and create a funny meme. 
-          Suggest:
-          1. A witty top caption and bottom caption.
-          2. A recommended filter from this list: [Normal, Grayscale, Sepia, Cool Blue].
-          3. 1-2 emojis to place as stickers, including suggested coordinates (x and y from 0.0 to 1.0).
           
+          Instructions:
+          1. Create witty top and bottom captions relevant to the image content. Use UPPERCASE.
+          2. Suggest a filter from: [Normal, Grayscale, Sepia, Cool Blue]. ONLY use a filter if it enhances the meme's humor or mood. Otherwise, use "Normal".
+          3. Suggest 0-2 stickers (emojis) with coordinates (x, y from 0.0 to 1.0). ONLY add stickers if they significantly increase the humor.
+          4. Suggest the best text styling:
+             - fontFamily from: [Anton, Oswald, Bebas Neue, Black Ops One].
+             - textColor from: [White, Vibrant Yellow, Orange, Red, Lime, Electric Indigo, Black].
+             - fontSize between 24.0 and 72.0 based on text length and image space.
+
           Return ONLY a JSON object in this format:
           {
             "topText": "CAPTION HERE",
@@ -76,9 +90,11 @@ class AIService {
             "filter": "Normal",
             "stickers": [
               {"emoji": "😂", "x": 0.5, "y": 0.5}
-            ]
+            ],
+            "fontFamily": "Anton",
+            "textColor": "White",
+            "fontSize": 42.0
           }
-          Make the captions relevant to the image content. Use Uppercase for captions.
         '''),
         DataPart('image/jpeg', bytes),
       ])

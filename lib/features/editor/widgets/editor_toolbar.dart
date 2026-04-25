@@ -26,6 +26,7 @@ class EditorToolbar extends ConsumerWidget {
 
     String selFont = s.memeFont;
     Color selColor = s.memeColor;
+    double selFontSize = s.memeFontSize;
 
     showModalBottomSheet(
       context: context,
@@ -100,7 +101,7 @@ class EditorToolbar extends ConsumerWidget {
                               text: topCtrl.text,
                               font: selFont,
                               color: selColor,
-                              fontSize: 32,
+                              fontSize: selFontSize * 0.7, // Skala kecil untuk preview
                             ),
                           if (topCtrl.text.isNotEmpty && botCtrl.text.isNotEmpty)
                             const SizedBox(height: 6),
@@ -109,7 +110,7 @@ class EditorToolbar extends ConsumerWidget {
                               text: botCtrl.text,
                               font: selFont,
                               color: selColor,
-                              fontSize: 32,
+                              fontSize: selFontSize * 0.7, // Skala kecil untuk preview
                             ),
                           if (topCtrl.text.isEmpty && botCtrl.text.isEmpty)
                             const Padding(
@@ -236,6 +237,51 @@ class EditorToolbar extends ConsumerWidget {
                         );
                       }).toList(),
                     ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'UKURAN FONT',
+                      style: GoogleFonts.nunito(
+                        textStyle: const TextStyle(
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.text_fields_rounded, color: Colors.white38, size: 16),
+                        Expanded(
+                          child: SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              activeTrackColor: const Color(0xFFFFD500),
+                              inactiveTrackColor: Colors.white10,
+                              thumbColor: const Color(0xFFFFD500),
+                              overlayColor: const Color(0xFFFFD500).withOpacity(0.2),
+                              valueIndicatorColor: const Color(0xFFFFD500),
+                              valueIndicatorTextStyle: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                            ),
+                            child: Slider(
+                              value: selFontSize,
+                              min: EditorUtils.minFontSize,
+                              max: EditorUtils.maxFontSize,
+                              divisions: (EditorUtils.maxFontSize - EditorUtils.minFontSize).toInt(),
+                              label: selFontSize.round().toString(),
+                              onChanged: (val) => setSheet(() => selFontSize = val),
+                            ),
+                          ),
+                        ),
+                        Text(
+                          selFontSize.round().toString(),
+                          style: GoogleFonts.anton(
+                            color: const Color(0xFFFFD500),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 22),
                     SizedBox(
                       width: double.infinity,
@@ -259,6 +305,7 @@ class EditorToolbar extends ConsumerWidget {
                           notifier.setMemeText(MemeTextSlot.bottom, botCtrl.text);
                           notifier.setMemeFont(selFont);
                           notifier.setMemeColor(selColor);
+                          notifier.setMemeFontSize(selFontSize);
                           Navigator.pop(context);
                         },
                         child: Text(
@@ -479,10 +526,25 @@ class EditorToolbar extends ConsumerWidget {
         );
       }
 
+      // Map color string to Color object
+      Color selectedColor = Colors.white;
+      switch (suggestion.textColor) {
+        case 'Vibrant Yellow': selectedColor = const Color(0xFFFFD500); break;
+        case 'Orange': selectedColor = const Color(0xFFF97316); break;
+        case 'Red': selectedColor = const Color(0xFFFF5555); break;
+        case 'Lime': selectedColor = const Color(0xFF00FF41); break;
+        case 'Electric Indigo': selectedColor = const Color(0xFF4338CA); break;
+        case 'Black': selectedColor = Colors.black; break;
+        default: selectedColor = Colors.white;
+      }
+
       ref.read(editorProvider.notifier).applyAISuggestions(
         topText: suggestion.topText,
         bottomText: suggestion.bottomText,
         filter: suggestion.filter,
+        font: suggestion.fontFamily,
+        color: selectedColor,
+        fontSize: suggestion.fontSize,
         newOverlays: newOverlays,
       );
 

@@ -12,6 +12,9 @@ class EditorUtils {
     'Black Ops One',
   ];
 
+  static const double minFontSize = 12.0;
+  static const double maxFontSize = 100.0;
+
   /// Available color options for meme text
   static const List<Color> colorOptions = [
     Colors.white,

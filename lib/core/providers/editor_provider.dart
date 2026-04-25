@@ -59,6 +59,7 @@ class EditorState {
   final Uint8List? croppedImageBytes;
   final String memeFont;
   final Color memeColor;
+  final double memeFontSize;
 
   EditorState({
     this.overlays = const [],
@@ -68,6 +69,7 @@ class EditorState {
     this.croppedImageBytes,
     this.memeFont = 'Anton',
     this.memeColor = Colors.white,
+    this.memeFontSize = 42.0,
   });
 
   EditorState copyWith({
@@ -78,6 +80,7 @@ class EditorState {
     Uint8List? croppedImageBytes,
     String? memeFont,
     Color? memeColor,
+    double? memeFontSize,
     bool clearTopText = false,
     bool clearBottomText = false,
     bool clearCrop = false,
@@ -91,6 +94,7 @@ class EditorState {
           clearCrop ? null : (croppedImageBytes ?? this.croppedImageBytes),
       memeFont: memeFont ?? this.memeFont,
       memeColor: memeColor ?? this.memeColor,
+      memeFontSize: memeFontSize ?? this.memeFontSize,
     );
   }
 }
@@ -159,6 +163,10 @@ class EditorNotifier extends StateNotifier<EditorState> {
     state = state.copyWith(memeColor: color);
   }
 
+  void setMemeFontSize(double size) {
+    state = state.copyWith(memeFontSize: size);
+  }
+
   void setFilter(String filter) {
     state = state.copyWith(activeFilter: filter);
   }
@@ -175,12 +183,18 @@ class EditorNotifier extends StateNotifier<EditorState> {
     String? topText,
     String? bottomText,
     String? filter,
+    String? font,
+    Color? color,
+    double? fontSize,
     List<OverlayItem>? newOverlays,
   }) {
     state = state.copyWith(
       topText: topText?.toUpperCase(),
       bottomText: bottomText?.toUpperCase(),
       activeFilter: filter,
+      memeFont: font,
+      memeColor: color,
+      memeFontSize: fontSize,
       overlays: [...state.overlays, ...?newOverlays],
     );
   }

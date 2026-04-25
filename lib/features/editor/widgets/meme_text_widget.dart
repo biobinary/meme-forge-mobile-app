@@ -7,7 +7,7 @@ class MemeTextWidget extends StatelessWidget {
     required this.text,
     required this.font,
     required this.color,
-    this.fontSize = 42,
+    required this.fontSize,
   });
 
   final String text;

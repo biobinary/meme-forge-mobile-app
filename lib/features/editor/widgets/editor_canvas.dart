@@ -109,11 +109,12 @@ class EditorCanvasState extends ConsumerState<EditorCanvas> {
                                 onLongPress: () => ref
                                     .read(editorProvider.notifier)
                                     .clearMemeText(MemeTextSlot.top),
-                                child: MemeTextWidget(
-                                  text: widget.editorState.topText!,
-                                  font: widget.editorState.memeFont,
-                                  color: widget.editorState.memeColor,
-                                ),
+                                  child: MemeTextWidget(
+                                    text: widget.editorState.topText!,
+                                    font: widget.editorState.memeFont,
+                                    color: widget.editorState.memeColor,
+                                    fontSize: widget.editorState.memeFontSize,
+                                  ),
                               ),
                             ),
                           if (hasBottom)
@@ -125,11 +126,12 @@ class EditorCanvasState extends ConsumerState<EditorCanvas> {
                                 onLongPress: () => ref
                                     .read(editorProvider.notifier)
                                     .clearMemeText(MemeTextSlot.bottom),
-                                child: MemeTextWidget(
-                                  text: widget.editorState.bottomText!,
-                                  font: widget.editorState.memeFont,
-                                  color: widget.editorState.memeColor,
-                                ),
+                                  child: MemeTextWidget(
+                                    text: widget.editorState.bottomText!,
+                                    font: widget.editorState.memeFont,
+                                    color: widget.editorState.memeColor,
+                                    fontSize: widget.editorState.memeFontSize,
+                                  ),
                               ),
                             ),
                           ...widget.editorState.overlays.map((item) {
