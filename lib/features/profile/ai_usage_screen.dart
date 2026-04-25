@@ -26,7 +26,19 @@ class AIUsageScreen extends ConsumerWidget {
       ),
       body: usageAsync.when(
         data: (usage) {
-          final count = usage?['count'] ?? 0;
+          int count = usage?['count'] ?? 0;
+          
+          if (usage != null && usage['lastReset'] != null) {
+            final lastReset = (usage['lastReset'] as Timestamp).toDate();
+            final now = DateTime.now();
+            final isSameDay = lastReset.year == now.year && 
+                              lastReset.month == now.month && 
+                              lastReset.day == now.day;
+            if (!isSameDay) {
+              count = 0;
+            }
+          }
+
           final remaining = (5 - count).clamp(0, 5);
           final percent = (count / 5).clamp(0.0, 1.0);
 
