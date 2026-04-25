@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'home_screen.dart';
 import '../profile/profile_screen.dart';
+import '../feed/feed_screen.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
@@ -16,6 +17,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   final List<Widget> _screens = const [
     HomeScreen(),
+    FeedScreen(),
     ProfileScreen(),
   ];
 
@@ -57,6 +59,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               ),
               _buildNavItem(
                 index: 1,
+                label: 'Feed',
+                icon: Icons.explore_outlined,
+                activeIcon: Icons.explore_rounded,
+                colorScheme: colorScheme,
+              ),
+              _buildNavItem(
+                index: 2,
                 label: 'Profil',
                 icon: Icons.person_outline_rounded,
                 activeIcon: Icons.person_rounded,

@@ -30,10 +30,31 @@ final userMemesProvider = StreamProvider<List<MemeModel>>((ref) {
   });
 });
 
+final randomFeedProvider = FutureProvider.autoDispose<List<MemeModel>>((ref) async {
+  final repository = ref.watch(memeRepositoryProvider);
+  return repository.getRandomMemes(limit: 10);
+});
+
 final memeRepositoryProvider = Provider((ref) => MemeRepository());
 
 class MemeRepository {
   final _db = FirebaseFirestore.instance;
+
+  Future<List<MemeModel>> getRandomMemes({int limit = 10}) async {
+    // Fetch a larger chunk and shuffle in-memory for randomness
+    // In a real production app with millions of docs, we'd use a different strategy
+    final snapshot = await _db
+        .collection('memes')
+        .limit(50)
+        .get();
+
+    final memes = snapshot.docs
+        .map((doc) => MemeModel.fromMap(doc.data(), doc.id))
+        .toList();
+
+    memes.shuffle();
+    return memes.take(limit).toList();
+  }
 
   Future<void> updateMemeCaption(String memeId, String newCaption) async {
     await _db.collection('memes').doc(memeId).update({
