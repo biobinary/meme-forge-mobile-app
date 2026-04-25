@@ -7,6 +7,7 @@ import '../../../core/providers/editor_provider.dart';
 import '../utils/editor_utils.dart';
 import '../crop_screen.dart';
 import 'meme_text_widget.dart';
+import '../../../core/services/ai_service.dart';
 
 class EditorToolbar extends ConsumerWidget {
   const EditorToolbar({
@@ -453,6 +454,60 @@ class EditorToolbar extends ConsumerWidget {
     }
   }
 
+  Future<void> _autoEditWithAI(BuildContext context, WidgetRef ref) async {
+    final aiService = AIService();
+    
+    try {
+      ref.read(aiProcessingProvider.notifier).state = true;
+      
+      final suggestion = await aiService.getAutoEditSuggestions(imageFile);
+      
+      // Cek apakah user sudah menekan cancel saat AI bekerja
+      if (!ref.read(aiProcessingProvider)) return;
+
+      final List<OverlayItem> newOverlays = [];
+      for (final s in suggestion.stickers) {
+        newOverlays.add(
+          OverlayItem(
+            id: DateTime.now().millisecondsSinceEpoch.toString() + s.emoji,
+            type: OverlayType.sticker,
+            content: s.emoji,
+            position: Offset(s.x * 200, s.y * 300), // Estimasi posisi
+            color: Colors.white,
+            size: 64,
+          ),
+        );
+      }
+
+      ref.read(editorProvider.notifier).applyAISuggestions(
+        topText: suggestion.topText,
+        bottomText: suggestion.bottomText,
+        filter: suggestion.filter,
+        newOverlays: newOverlays,
+      );
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('AI telah mengedit meme kamu! ✨'),
+            backgroundColor: Color(0xFFFFD500),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted && ref.read(aiProcessingProvider)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('AI Gagal: pastikan API Key sudah benar. ($e)'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      ref.read(aiProcessingProvider.notifier).state = false;
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return SafeArea(
@@ -488,6 +543,12 @@ class EditorToolbar extends ConsumerWidget {
               icon: Icons.photo_filter_rounded,
               label: 'Filter',
               onTap: () => _showFilterSheet(context, ref),
+            ),
+            ToolbarItem(
+              icon: Icons.auto_fix_high_rounded,
+              label: 'Magic AI',
+              highlighted: true,
+              onTap: () => _autoEditWithAI(context, ref),
             ),
           ],
         ),

@@ -171,6 +171,20 @@ class EditorNotifier extends StateNotifier<EditorState> {
     state = state.copyWith(clearCrop: true);
   }
 
+  void applyAISuggestions({
+    String? topText,
+    String? bottomText,
+    String? filter,
+    List<OverlayItem>? newOverlays,
+  }) {
+    state = state.copyWith(
+      topText: topText?.toUpperCase(),
+      bottomText: bottomText?.toUpperCase(),
+      activeFilter: filter,
+      overlays: [...state.overlays, ...?newOverlays],
+    );
+  }
+
   void clear() {
     state = EditorState();
   }
@@ -180,3 +194,5 @@ final editorProvider =
     StateNotifierProvider<EditorNotifier, EditorState>((ref) {
   return EditorNotifier();
 });
+
+final aiProcessingProvider = StateProvider<bool>((ref) => false);

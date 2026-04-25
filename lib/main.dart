@@ -8,6 +8,7 @@ import 'core/providers/auth_provider.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'core/config/app_config.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -18,10 +19,10 @@ void main() async {
   );
 
   await Supabase.initialize(
-    url: '[some_url]',
-    anonKey: '[some_key]',
+    url: AppConfig.supabaseUrl,
+    anonKey: AppConfig.supabaseAnonKey,
   );
-
+  
   runApp(
     const ProviderScope(
       child: MemeMakerApp(),

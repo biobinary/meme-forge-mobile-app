@@ -10,6 +10,8 @@ import 'processing_screen.dart';
 import 'widgets/editor_canvas.dart';
 import 'widgets/editor_toolbar.dart';
 
+import 'widgets/ai_loading_overlay.dart';
+
 class EditorScreen extends ConsumerStatefulWidget {
   const EditorScreen({
     super.key,
@@ -117,19 +119,28 @@ class _EditorScreenState extends ConsumerState<EditorScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          Expanded(
-            child: EditorCanvas(
-              key: _editorCanvasKey,
-              canvasKey: _canvasKey,
-              imageFile: currentImage,
-              editorState: editorState,
-            ),
+          Column(
+            children: [
+              Expanded(
+                child: EditorCanvas(
+                  key: _editorCanvasKey,
+                  canvasKey: _canvasKey,
+                  imageFile: currentImage,
+                  editorState: editorState,
+                ),
+              ),
+              EditorToolbar(
+                imageFile: currentImage,
+                colorScheme: colorScheme,
+              ),
+            ],
           ),
-          EditorToolbar(
-            imageFile: currentImage,
-            colorScheme: colorScheme,
+          AILoadingOverlay(
+            onCancel: () {
+              ref.read(aiProcessingProvider.notifier).state = false;
+            },
           ),
         ],
       ),
