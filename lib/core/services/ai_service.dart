@@ -133,9 +133,31 @@ class AIService {
     }
   }
 
+  Future<DateTime> _getNetworkTimeUtc() async {
+    
+    try {
+    
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 3);
+      final request = await client.headUrl(Uri.parse('https://google.com'));
+      final response = await request.close();
+      final dateHeader = response.headers.value('date');
+    
+      if (dateHeader != null) {
+        return HttpDate.parse(dateHeader);
+      }
+    
+    } catch (e) {
+      // Fallback to local device time in UTC if network request fails
+    }
+    
+    return DateTime.now().toUtc();
+  
+  }
+
   Future<void> _checkAndIncrementUsage(String userId) async {
     final docRef = FirebaseFirestore.instance.collection('ai_usage').doc(userId);
-    final now = DateTime.now();
+    final nowUtc = await _getNetworkTimeUtc();
     
     final doc = await docRef.get();
     
@@ -149,22 +171,20 @@ class AIService {
     }
 
     final data = doc.data()!;
-    final lastReset = (data['lastReset'] as Timestamp?)?.toDate() ?? now;
+    final lastResetUtc = (data['lastReset'] as Timestamp?)?.toDate().toUtc() ?? nowUtc;
     int count = data['count'] ?? 0;
 
-    // Check if it's a new day
-    final isSameDay = lastReset.year == now.year && 
-                      lastReset.month == now.month && 
-                      lastReset.day == now.day;
+    final isSameDay = lastResetUtc.year == nowUtc.year && 
+                      lastResetUtc.month == nowUtc.month && 
+                      lastResetUtc.day == nowUtc.day;
 
     if (!isSameDay) {
-      // New day, reset count
       await docRef.update({
         'count': 1,
         'lastReset': FieldValue.serverTimestamp(),
       });
     } else {
-      // Same day, check limit
+      
       if (count >= 5) {
         throw LimitReachedException('Kamu telah mencapai batas 5 request AI hari ini. Coba lagi besok!');
       }
