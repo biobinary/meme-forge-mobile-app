@@ -136,62 +136,74 @@ class AIService {
   Future<DateTime> _getNetworkTimeUtc() async {
     
     try {
-    
+      
       final client = HttpClient();
-      client.connectionTimeout = const Duration(seconds: 3);
-      final request = await client.headUrl(Uri.parse('https://google.com'));
+      client.connectionTimeout = const Duration(seconds: 4);
+      final request = await client.headUrl(Uri.parse('https://www.google.com'));
       final response = await request.close();
       final dateHeader = response.headers.value('date');
-    
+      
       if (dateHeader != null) {
-        return HttpDate.parse(dateHeader);
+        return HttpDate.parse(dateHeader).toUtc();
       }
     
     } catch (e) {
       // Fallback to local device time in UTC if network request fails
+
     }
     
     return DateTime.now().toUtc();
-  
+
   }
 
   Future<void> _checkAndIncrementUsage(String userId) async {
+    
     final docRef = FirebaseFirestore.instance.collection('ai_usage').doc(userId);
     final nowUtc = await _getNetworkTimeUtc();
     
-    final doc = await docRef.get();
+    return FirebaseFirestore.instance.runTransaction((transaction) async {
     
-    if (!doc.exists) {
-      // First time use
-      await docRef.set({
-        'count': 1,
-        'lastReset': FieldValue.serverTimestamp(),
-      });
-      return;
-    }
-
-    final data = doc.data()!;
-    final lastResetUtc = (data['lastReset'] as Timestamp?)?.toDate().toUtc() ?? nowUtc;
-    int count = data['count'] ?? 0;
-
-    final isSameDay = lastResetUtc.year == nowUtc.year && 
-                      lastResetUtc.month == nowUtc.month && 
-                      lastResetUtc.day == nowUtc.day;
-
-    if (!isSameDay) {
-      await docRef.update({
-        'count': 1,
-        'lastReset': FieldValue.serverTimestamp(),
-      });
-    } else {
+      final doc = await transaction.get(docRef);
       
-      if (count >= 5) {
-        throw LimitReachedException('Kamu telah mencapai batas 5 request AI hari ini. Coba lagi besok!');
+      if (!doc.exists) {
+    
+        transaction.set(docRef, {
+          'count': 1,
+          'lastReset': FieldValue.serverTimestamp(),
+        });
+    
+        return;
+    
+      }
+
+      final data = doc.data()!;
+      final lastResetUtc = (data['lastReset'] as Timestamp?)?.toDate().toUtc() ?? nowUtc;
+      int count = data['count'] ?? 0;
+
+      final isSameDay = lastResetUtc.year == nowUtc.year && 
+                        lastResetUtc.month == nowUtc.month && 
+                        lastResetUtc.day == nowUtc.day;
+
+      if (!isSameDay) {
+        
+        transaction.update(docRef, {
+          'count': 1,
+          'lastReset': FieldValue.serverTimestamp(),
+        });
+
+      } else {
+        
+        if (count >= 5) {
+          throw LimitReachedException('Kamu telah mencapai batas 5 request AI hari ini. Coba lagi besok!');
+        }
+        
+        transaction.update(docRef, {
+          'count': count + 1,
+        });
+        
       }
       
-      await docRef.update({
-        'count': FieldValue.increment(1),
-      });
-    }
+    });
+    
   }
 }
