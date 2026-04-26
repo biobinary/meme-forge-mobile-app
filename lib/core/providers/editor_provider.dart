@@ -199,6 +199,49 @@ class EditorNotifier extends StateNotifier<EditorState> {
     );
   }
 
+  void applyAIJson(Map<String, dynamic> json) {
+
+    final List<OverlayItem> newOverlays = [];
+    final stickers = json['stickers'] as List? ?? [];
+
+    for (final s in stickers) {
+      newOverlays.add(
+        OverlayItem(
+          id: '${DateTime.now().millisecondsSinceEpoch}${s['emoji']}',
+          type: OverlayType.sticker,
+          content: (s['emoji'] as String?) ?? '🔥',
+          position: Offset(
+            ((s['x'] as num?) ?? 0.5) * 200,
+            ((s['y'] as num?) ?? 0.5) * 300,
+          ),
+          color: Colors.white,
+          size: 64,
+        ),
+      );
+    }
+
+    final Color selectedColor = switch (json['textColor'] as String?) {
+      'Vibrant Yellow' => const Color(0xFFFFD500),
+      'Orange'         => const Color(0xFFF97316),
+      'Red'            => const Color(0xFFFF5555),
+      'Lime'           => const Color(0xFF00FF41),
+      'Electric Indigo'=> const Color(0xFF4338CA),
+      'Black'          => Colors.black,
+      _                => Colors.white,
+    };
+
+    applyAISuggestions(
+      topText:     json['topText']    as String?,
+      bottomText:  json['bottomText'] as String?,
+      filter:      json['filter']     as String?,
+      font:        json['fontFamily'] as String?,
+      color:       selectedColor,
+      fontSize:    (json['fontSize'] as num?)?.toDouble(),
+      newOverlays: newOverlays,
+    );
+    
+  }
+
   void clear() {
     state = EditorState();
   }

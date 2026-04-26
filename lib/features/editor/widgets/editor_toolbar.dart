@@ -4,18 +4,15 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/models/meme_model.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/editor_provider.dart';
-import '../../../core/services/ai_service.dart';
 import '../../../core/services/background_service.dart';
 import '../utils/editor_utils.dart';
 import '../crop_screen.dart';
 import 'meme_text_widget.dart';
 
-class EditorToolbar extends ConsumerWidget {
+class EditorToolbar extends ConsumerStatefulWidget {
   const EditorToolbar({
     super.key,
     required this.imageFile,
@@ -25,7 +22,21 @@ class EditorToolbar extends ConsumerWidget {
   final File imageFile;
   final ColorScheme colorScheme;
 
-  void _showMemeTextDialog(BuildContext context, WidgetRef ref) {
+  @override
+  ConsumerState<EditorToolbar> createState() => _EditorToolbarState();
+}
+
+class _EditorToolbarState extends ConsumerState<EditorToolbar> {
+  /// Set to false in dispose() to abort the AI polling loop safely.
+  bool _isPolling = false;
+
+  @override
+  void dispose() {
+    _isPolling = false;
+    super.dispose();
+  }
+
+  void _showMemeTextDialog(BuildContext context) {
     final s = ref.read(editorProvider);
     final topCtrl = TextEditingController(text: s.topText ?? '');
     final botCtrl = TextEditingController(text: s.bottomText ?? '');
@@ -335,7 +346,7 @@ class EditorToolbar extends ConsumerWidget {
     );
   }
 
-  void _showStickerSheet(BuildContext context, WidgetRef ref) {
+  void _showStickerSheet(BuildContext context) {
     const emojis = [
       '😂', '😎', '🔥', '💀', '💯', '🤔', '🤡', '👀',
       '😭', '🫡', '🗿', '✨',
@@ -417,7 +428,7 @@ class EditorToolbar extends ConsumerWidget {
     );
   }
 
-  void _showFilterSheet(BuildContext context, WidgetRef ref) {
+  void _showFilterSheet(BuildContext context) {
     const filters = ['Normal', 'Grayscale', 'Sepia', 'Cool Blue'];
 
     showModalBottomSheet(
@@ -495,11 +506,11 @@ class EditorToolbar extends ConsumerWidget {
     );
   }
 
-  Future<void> _openCropScreen(BuildContext context, WidgetRef ref) async {
+  Future<void> _openCropScreen(BuildContext context) async {
     final result = await Navigator.push<Uint8List?>(
       context,
       MaterialPageRoute(
-        builder: (_) => CropScreen(imageFile: imageFile),
+        builder: (_) => CropScreen(imageFile: widget.imageFile),
       ),
     );
     if (result != null) {
@@ -507,17 +518,22 @@ class EditorToolbar extends ConsumerWidget {
     }
   }
 
-  Future<void> _autoEditWithAI(BuildContext context, WidgetRef ref) async {
+  Future<void> _autoEditWithAI(BuildContext context) async {
+    // Prevent double-trigger if already polling
+    if (_isPolling) return;
+
     final user = ref.read(authStateProvider).value;
     if (user == null) return;
 
+    _isPolling = true;
+
     try {
       ref.read(aiProcessingProvider.notifier).state = true;
-      
+
       // Schedule background task
-      BackgroundService.scheduleAITask(imageFile.path, user.uid);
-      
-      if (context.mounted) {
+      BackgroundService.scheduleAITask(widget.imageFile.path, user.uid);
+
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('AI sedang bekerja di background... 🧠'),
@@ -532,57 +548,33 @@ class EditorToolbar extends ConsumerWidget {
 
       int attempts = 0;
       const maxAttempts = 45;
-      
-      while (attempts < maxAttempts && ref.read(aiProcessingProvider)) {
+
+      // Poll for result — loop aborts if widget is disposed (_isPolling=false)
+      // or user cancels via the cancel button (aiProcessingProvider=false).
+      while (attempts < maxAttempts &&
+          _isPolling &&
+          mounted &&
+          ref.read(aiProcessingProvider)) {
         await Future.delayed(const Duration(seconds: 1));
-        
+
+        // Re-check after await — widget may have been disposed during sleep
+        if (!mounted || !_isPolling) break;
+
         await prefs.reload();
         final resultStr = prefs.getString('last_ai_suggestion');
-        
+
         if (resultStr != null) {
-          final Map<String, dynamic> json = jsonDecode(resultStr);
-          
+          final Map<String, dynamic> json = jsonDecode(resultStr) as Map<String, dynamic>;
           await prefs.remove('last_ai_suggestion');
-          
+
+          if (!mounted || !_isPolling) break;
+
           ref.read(aiProcessingProvider.notifier).state = false;
 
-          final List<OverlayItem> newOverlays = [];
-          final stickers = json['stickers'] as List? ?? [];
-          for (final s in stickers) {
-            newOverlays.add(
-              OverlayItem(
-                id: DateTime.now().millisecondsSinceEpoch.toString() + s['emoji'],
-                type: OverlayType.sticker,
-                content: s['emoji'],
-                position: Offset(s['x'] * 200, s['y'] * 300),
-                color: Colors.white,
-                size: 64,
-              ),
-            );
-          }
+          // Single source of truth: no duplicate parsing here
+          ref.read(editorProvider.notifier).applyAIJson(json);
 
-          Color selectedColor = Colors.white;
-          switch (json['textColor']) {
-            case 'Vibrant Yellow': selectedColor = const Color(0xFFFFD500); break;
-            case 'Orange': selectedColor = const Color(0xFFF97316); break;
-            case 'Red': selectedColor = const Color(0xFFFF5555); break;
-            case 'Lime': selectedColor = const Color(0xFF00FF41); break;
-            case 'Electric Indigo': selectedColor = const Color(0xFF4338CA); break;
-            case 'Black': selectedColor = Colors.black; break;
-            default: selectedColor = Colors.white;
-          }
-
-          ref.read(editorProvider.notifier).applyAISuggestions(
-            topText: json['topText'],
-            bottomText: json['bottomText'],
-            filter: json['filter'],
-            font: json['fontFamily'],
-            color: selectedColor,
-            fontSize: (json['fontSize'] as num).toDouble(),
-            newOverlays: newOverlays,
-          );
-
-          if (context.mounted) {
+          if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('AI telah mengedit meme kamu! ✨'),
@@ -594,20 +586,20 @@ class EditorToolbar extends ConsumerWidget {
         }
         attempts++;
       }
-      
-      if (attempts >= maxAttempts && ref.read(aiProcessingProvider)) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('AI butuh waktu lebih lama. Cek notifikasi nanti ya! 🔔'),
-              backgroundColor: Colors.blueAccent,
-            ),
-          );
-        }
-      }
 
+      if (mounted &&
+          _isPolling &&
+          attempts >= maxAttempts &&
+          ref.read(aiProcessingProvider)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('AI butuh waktu lebih lama. Cek notifikasi nanti ya! 🔔'),
+            backgroundColor: Colors.blueAccent,
+          ),
+        );
+      }
     } catch (e) {
-      if (context.mounted && ref.read(aiProcessingProvider)) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Terjadi kesalahan: $e'),
@@ -616,12 +608,15 @@ class EditorToolbar extends ConsumerWidget {
         );
       }
     } finally {
-      ref.read(aiProcessingProvider.notifier).state = false;
+      _isPolling = false;
+      if (mounted) {
+        ref.read(aiProcessingProvider.notifier).state = false;
+      }
     }
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return SafeArea(
       top: false,
       child: Container(
@@ -639,28 +634,28 @@ class EditorToolbar extends ConsumerWidget {
             ToolbarItem(
               icon: Icons.crop_rounded,
               label: 'Crop',
-              onTap: () => _openCropScreen(context, ref),
+              onTap: () => _openCropScreen(context),
             ),
             ToolbarItem(
               icon: Icons.text_fields_rounded,
               label: 'Teks',
-              onTap: () => _showMemeTextDialog(context, ref),
+              onTap: () => _showMemeTextDialog(context),
             ),
             ToolbarItem(
               icon: Icons.emoji_emotions_outlined,
               label: 'Stiker',
-              onTap: () => _showStickerSheet(context, ref),
+              onTap: () => _showStickerSheet(context),
             ),
             ToolbarItem(
               icon: Icons.photo_filter_rounded,
               label: 'Filter',
-              onTap: () => _showFilterSheet(context, ref),
+              onTap: () => _showFilterSheet(context),
             ),
             ToolbarItem(
               icon: Icons.auto_fix_high_rounded,
               label: 'Magic AI',
               highlighted: true,
-              onTap: () => _autoEditWithAI(context, ref),
+              onTap: () => _autoEditWithAI(context),
             ),
           ],
         ),

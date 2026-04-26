@@ -8,7 +8,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/providers/image_provider.dart';
 import '../../core/providers/editor_provider.dart';
-import '../../core/models/meme_model.dart';
 import 'processing_screen.dart';
 import 'widgets/editor_canvas.dart';
 import 'widgets/editor_toolbar.dart';
@@ -57,23 +56,25 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
 
   Future<void> _checkForBackgroundResult() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.reload(); // Reload to see background changes
+    await prefs.reload();
     final resultStr = prefs.getString('last_ai_suggestion');
-    
+
     if (resultStr != null) {
-      final json = jsonDecode(resultStr);
-      
-      // Clear result immediately
+      final json = jsonDecode(resultStr) as Map<String, dynamic>;
+
+      // Clear result immediately to prevent double-apply
       await prefs.remove('last_ai_suggestion');
-      
+
+      if (!mounted) return;
+
       // Stop loading if active
       if (ref.read(aiProcessingProvider)) {
         ref.read(aiProcessingProvider.notifier).state = false;
       }
 
-      // Apply result
-      _applyResult(json);
-      
+      // Single source of truth: delegate all parsing to EditorNotifier
+      ref.read(editorProvider.notifier).applyAIJson(json);
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -85,43 +86,8 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
     }
   }
 
-  void _applyResult(Map<String, dynamic> json) {
-    final List<OverlayItem> newOverlays = [];
-    final stickers = json['stickers'] as List? ?? [];
-    for (final s in stickers) {
-      newOverlays.add(
-        OverlayItem(
-          id: DateTime.now().millisecondsSinceEpoch.toString() + s['emoji'],
-          type: OverlayType.sticker,
-          content: s['emoji'],
-          position: Offset(s['x'] * 200, s['y'] * 300),
-          color: Colors.white,
-          size: 64,
-        ),
-      );
-    }
-
-    Color selectedColor = Colors.white;
-    switch (json['textColor']) {
-      case 'Vibrant Yellow': selectedColor = const Color(0xFFFFD500); break;
-      case 'Orange': selectedColor = const Color(0xFFF97316); break;
-      case 'Red': selectedColor = const Color(0xFFFF5555); break;
-      case 'Lime': selectedColor = const Color(0xFF00FF41); break;
-      case 'Electric Indigo': selectedColor = const Color(0xFF4338CA); break;
-      case 'Black': selectedColor = Colors.black; break;
-      default: selectedColor = Colors.white;
-    }
-
-    ref.read(editorProvider.notifier).applyAISuggestions(
-      topText: json['topText'],
-      bottomText: json['bottomText'],
-      filter: json['filter'],
-      font: json['fontFamily'],
-      color: selectedColor,
-      fontSize: (json['fontSize'] as num).toDouble(),
-      newOverlays: newOverlays,
-    );
-  }
+  // _applyResult() removed — all AI JSON parsing is now handled
+  // centrally by EditorNotifier.applyAIJson() to avoid duplication.
 
   @override
   Widget build(BuildContext context) {
