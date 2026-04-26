@@ -112,8 +112,7 @@ class _DraggableStickerState extends ConsumerState<DraggableSticker> {
         },
         child: Transform(
           alignment: Alignment.center,
-          transform: Matrix4.identity()
-            ..scale(_localScale)
+          transform: Matrix4.diagonal3Values(_localScale, _localScale, 1.0)
             ..rotateZ(_localRotation),
           child: Container(
             padding: EdgeInsets.all(16 * invScale),

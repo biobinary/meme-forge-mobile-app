@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -20,7 +21,7 @@ void callbackDispatcher() {
       try {
         await dotenv.load(fileName: ".env");
       } catch (e) {
-        print("Warning: Could not load .env in background: $e");
+        debugPrint("Warning: Could not load .env in background: $e");
       }
 
       if (task == "ai_generation_task") {
@@ -51,7 +52,7 @@ void callbackDispatcher() {
       }
       return true;
     } catch (e) {
-      print("Background Task Error: $e");
+      debugPrint("Background Task Error: $e");
       return false;
     }
   });
@@ -61,7 +62,6 @@ class BackgroundService {
   static Future<void> init() async {
     await Workmanager().initialize(
       callbackDispatcher,
-      isInDebugMode: true,
     );
   }
 

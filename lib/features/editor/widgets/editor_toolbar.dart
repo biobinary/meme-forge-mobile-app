@@ -276,7 +276,7 @@ class _EditorToolbarState extends ConsumerState<EditorToolbar> {
                               activeTrackColor: const Color(0xFFFFD500),
                               inactiveTrackColor: Colors.white10,
                               thumbColor: const Color(0xFFFFD500),
-                              overlayColor: const Color(0xFFFFD500).withOpacity(0.2),
+                              overlayColor: const Color(0xFFFFD500).withValues(alpha: 0.2),
                               valueIndicatorColor: const Color(0xFFFFD500),
                               valueIndicatorTextStyle: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
                             ),
@@ -574,7 +574,7 @@ class _EditorToolbarState extends ConsumerState<EditorToolbar> {
           // Single source of truth: no duplicate parsing here
           ref.read(editorProvider.notifier).applyAIJson(json);
 
-          if (mounted) {
+          if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('AI telah mengedit meme kamu! ✨'),
@@ -587,7 +587,7 @@ class _EditorToolbarState extends ConsumerState<EditorToolbar> {
         attempts++;
       }
 
-      if (mounted &&
+      if (context.mounted &&
           _isPolling &&
           attempts >= maxAttempts &&
           ref.read(aiProcessingProvider)) {
@@ -599,7 +599,7 @@ class _EditorToolbarState extends ConsumerState<EditorToolbar> {
         );
       }
     } catch (e) {
-      if (mounted) {
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Terjadi kesalahan: $e'),

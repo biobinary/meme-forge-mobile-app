@@ -85,7 +85,7 @@ class AIUsageScreen extends ConsumerWidget {
                         'REQUEST TERSISA',
                         style: GoogleFonts.anton(
                           fontSize: 16,
-                          color: colorScheme.onSurface.withOpacity(0.7),
+                          color: colorScheme.onSurface.withValues(alpha: 0.7),
                         ),
                       ),
                     ],
@@ -173,7 +173,7 @@ class AIUsageScreen extends ConsumerWidget {
                             Text(
                               'Kuota kamu akan direset secara otomatis setiap 24 jam.',
                               style: theme.textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurface.withOpacity(0.7),
+                                color: colorScheme.onSurface.withValues(alpha: 0.7),
                                 fontWeight: FontWeight.w700,
                               ),
                             ),

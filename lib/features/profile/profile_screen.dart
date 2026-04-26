@@ -95,7 +95,7 @@ class ProfileScreen extends ConsumerWidget {
                     Text(
                       user?.email ?? '',
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurface.withOpacity(0.7),
+                        color: colorScheme.onSurface.withValues(alpha: 0.7),
                         fontWeight: FontWeight.bold,
                       ),
                       textAlign: TextAlign.center,
@@ -175,14 +175,14 @@ class ProfileScreen extends ConsumerWidget {
                           Icon(
                             Icons.image_not_supported_outlined,
                             size: 64,
-                            color: colorScheme.onSurface.withOpacity(0.3),
+                            color: colorScheme.onSurface.withValues(alpha: 0.3),
                           ),
                           const SizedBox(height: 16),
                           Text(
                             'Belum ada meme',
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
-                              color: colorScheme.onSurface.withOpacity(0.5),
+                              color: colorScheme.onSurface.withValues(alpha: 0.5),
                             ),
                           ),
                         ],

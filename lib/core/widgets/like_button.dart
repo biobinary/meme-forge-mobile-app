@@ -67,7 +67,7 @@ class LikeButton extends StatelessWidget {
                   'LIKES',
                   style: GoogleFonts.anton(
                     fontSize: 12,
-                    color: textColor.withOpacity(isLiked ? 0.85 : 0.6),
+                    color: textColor.withValues(alpha: isLiked ? 0.85 : 0.6),
                     letterSpacing: 1,
                   ),
                 ),
@@ -94,7 +94,7 @@ class LikeButton extends StatelessWidget {
                 ),
                 if (!isLoggedIn)
                   Icon(Icons.lock_outline_rounded,
-                      size: 14, color: textColor.withOpacity(0.5)),
+                      size: 14, color: textColor.withValues(alpha: 0.5)),
               ],
             ),
           ],

@@ -79,7 +79,7 @@ class AppTheme {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: Colors.black.withOpacity(0.1), width: 1.5),
+          side: BorderSide(color: Colors.black.withValues(alpha: 0.1), width: 1.5),
         ),
         color: Colors.white,
       ),

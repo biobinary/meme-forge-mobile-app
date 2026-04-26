@@ -96,7 +96,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           curve: Curves.easeInOut,
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: isSelected ? colorScheme.primary.withOpacity(0.15) : Colors.transparent,
+            color: isSelected ? colorScheme.primary.withValues(alpha: 0.15) : Colors.transparent,
             borderRadius: BorderRadius.circular(16),
           ),
           child: Column(

@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../config/app_config.dart';
-import 'notification_service.dart';
 
 class LimitReachedException implements Exception {
   final String message;
@@ -135,9 +134,7 @@ class AIService {
   }
 
   Future<DateTime> _getNetworkTimeUtc() async {
-    
     try {
-      
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 4);
       final request = await client.headUrl(Uri.parse('https://www.google.com'));
@@ -147,14 +144,11 @@ class AIService {
       if (dateHeader != null) {
         return HttpDate.parse(dateHeader).toUtc();
       }
-    
+      
+      throw Exception('Format header tanggal dari server tidak valid.');
     } catch (e) {
-      // Fallback to local device time in UTC if network request fails
-
+      throw Exception('Gagal memverifikasi waktu server. Pastikan koneksi internet Anda stabil untuk menggunakan fitur AI.');
     }
-    
-    return DateTime.now().toUtc();
-
   }
 
   Future<void> _checkAndIncrementUsage(String userId) async {

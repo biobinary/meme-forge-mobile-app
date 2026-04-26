@@ -278,7 +278,7 @@ class _MemeDetailViewState extends ConsumerState<MemeDetailView> {
           decoration: InputDecoration(
             hintText: 'Tulis caption baru...',
             filled: true,
-            fillColor: colorScheme.surfaceContainerHighest.withOpacity(0.3),
+            fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: Colors.black, width: 1.5),
@@ -417,13 +417,13 @@ class _MemeDetailViewState extends ConsumerState<MemeDetailView> {
         children: [
           Row(
             children: [
-              Icon(icon, size: 16, color: colorScheme.onSurface.withOpacity(0.6)),
+              Icon(icon, size: 16, color: colorScheme.onSurface.withValues(alpha: 0.6)),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: GoogleFonts.anton(
                   fontSize: 12,
-                  color: colorScheme.onSurface.withOpacity(0.6),
+                  color: colorScheme.onSurface.withValues(alpha: 0.6),
                   letterSpacing: 1,
                 ),
               ),

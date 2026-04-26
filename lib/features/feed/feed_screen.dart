@@ -20,9 +20,7 @@ class FeedScreen extends ConsumerWidget {
         title: const Text('FEED'),
       ),
       body: RefreshIndicator(
-        onRefresh: () async {
-          ref.refresh(randomFeedProvider);
-        },
+        onRefresh: () => ref.refresh(randomFeedProvider.future),
         color: colorScheme.onSurface,
         backgroundColor: colorScheme.primary,
         strokeWidth: 3,
