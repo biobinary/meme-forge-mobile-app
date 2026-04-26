@@ -1,14 +1,19 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/models/meme_model.dart';
+import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/editor_provider.dart';
+import '../../../core/services/ai_service.dart';
+import '../../../core/services/background_service.dart';
 import '../utils/editor_utils.dart';
 import '../crop_screen.dart';
 import 'meme_text_widget.dart';
-import '../../../core/services/ai_service.dart';
-import '../../../core/providers/auth_provider.dart';
 
 class EditorToolbar extends ConsumerWidget {
   const EditorToolbar({
@@ -503,78 +508,109 @@ class EditorToolbar extends ConsumerWidget {
   }
 
   Future<void> _autoEditWithAI(BuildContext context, WidgetRef ref) async {
-    final aiService = AIService();
     final user = ref.read(authStateProvider).value;
-    
     if (user == null) return;
 
     try {
       ref.read(aiProcessingProvider.notifier).state = true;
       
-      final suggestion = await aiService.getAutoEditSuggestions(imageFile, user.uid);
+      // Schedule background task
+      BackgroundService.scheduleAITask(imageFile.path, user.uid);
       
-      // Cek apakah user sudah menekan cancel saat AI bekerja
-      if (!ref.read(aiProcessingProvider)) return;
-
-      final List<OverlayItem> newOverlays = [];
-      for (final s in suggestion.stickers) {
-        newOverlays.add(
-          OverlayItem(
-            id: DateTime.now().millisecondsSinceEpoch.toString() + s.emoji,
-            type: OverlayType.sticker,
-            content: s.emoji,
-            position: Offset(s.x * 200, s.y * 300), // Estimasi posisi
-            color: Colors.white,
-            size: 64,
-          ),
-        );
-      }
-
-      // Map color string to Color object
-      Color selectedColor = Colors.white;
-      switch (suggestion.textColor) {
-        case 'Vibrant Yellow': selectedColor = const Color(0xFFFFD500); break;
-        case 'Orange': selectedColor = const Color(0xFFF97316); break;
-        case 'Red': selectedColor = const Color(0xFFFF5555); break;
-        case 'Lime': selectedColor = const Color(0xFF00FF41); break;
-        case 'Electric Indigo': selectedColor = const Color(0xFF4338CA); break;
-        case 'Black': selectedColor = Colors.black; break;
-        default: selectedColor = Colors.white;
-      }
-
-      ref.read(editorProvider.notifier).applyAISuggestions(
-        topText: suggestion.topText,
-        bottomText: suggestion.bottomText,
-        filter: suggestion.filter,
-        font: suggestion.fontFamily,
-        color: selectedColor,
-        fontSize: suggestion.fontSize,
-        newOverlays: newOverlays,
-      );
-
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('AI telah mengedit meme kamu! ✨'),
-            backgroundColor: Color(0xFFFFD500),
+            content: Text('AI sedang bekerja di background... 🧠'),
+            duration: Duration(seconds: 2),
+            backgroundColor: Color(0xFF2D2D30),
           ),
         );
       }
-    } on LimitReachedException catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.message),
-            backgroundColor: const Color(0xFFFF5555),
-            duration: const Duration(seconds: 4),
-          ),
-        );
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('last_ai_suggestion');
+
+      int attempts = 0;
+      const maxAttempts = 45;
+      
+      while (attempts < maxAttempts && ref.read(aiProcessingProvider)) {
+        await Future.delayed(const Duration(seconds: 1));
+        
+        await prefs.reload();
+        final resultStr = prefs.getString('last_ai_suggestion');
+        
+        if (resultStr != null) {
+          final Map<String, dynamic> json = jsonDecode(resultStr);
+          
+          await prefs.remove('last_ai_suggestion');
+          
+          ref.read(aiProcessingProvider.notifier).state = false;
+
+          final List<OverlayItem> newOverlays = [];
+          final stickers = json['stickers'] as List? ?? [];
+          for (final s in stickers) {
+            newOverlays.add(
+              OverlayItem(
+                id: DateTime.now().millisecondsSinceEpoch.toString() + s['emoji'],
+                type: OverlayType.sticker,
+                content: s['emoji'],
+                position: Offset(s['x'] * 200, s['y'] * 300),
+                color: Colors.white,
+                size: 64,
+              ),
+            );
+          }
+
+          Color selectedColor = Colors.white;
+          switch (json['textColor']) {
+            case 'Vibrant Yellow': selectedColor = const Color(0xFFFFD500); break;
+            case 'Orange': selectedColor = const Color(0xFFF97316); break;
+            case 'Red': selectedColor = const Color(0xFFFF5555); break;
+            case 'Lime': selectedColor = const Color(0xFF00FF41); break;
+            case 'Electric Indigo': selectedColor = const Color(0xFF4338CA); break;
+            case 'Black': selectedColor = Colors.black; break;
+            default: selectedColor = Colors.white;
+          }
+
+          ref.read(editorProvider.notifier).applyAISuggestions(
+            topText: json['topText'],
+            bottomText: json['bottomText'],
+            filter: json['filter'],
+            font: json['fontFamily'],
+            color: selectedColor,
+            fontSize: (json['fontSize'] as num).toDouble(),
+            newOverlays: newOverlays,
+          );
+
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('AI telah mengedit meme kamu! ✨'),
+                backgroundColor: Color(0xFFFFD500),
+              ),
+            );
+          }
+          break;
+        }
+        attempts++;
       }
+      
+      if (attempts >= maxAttempts && ref.read(aiProcessingProvider)) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('AI butuh waktu lebih lama. Cek notifikasi nanti ya! 🔔'),
+              backgroundColor: Colors.blueAccent,
+            ),
+          );
+        }
+      }
+
     } catch (e) {
       if (context.mounted && ref.read(aiProcessingProvider)) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('AI Gagal: pastikan API Key sudah benar. ($e)'),
+            content: Text('Terjadi kesalahan: $e'),
             backgroundColor: Colors.redAccent,
           ),
         );

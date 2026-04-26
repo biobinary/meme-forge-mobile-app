@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../config/app_config.dart';
+import 'notification_service.dart';
 
 class LimitReachedException implements Exception {
   final String message;

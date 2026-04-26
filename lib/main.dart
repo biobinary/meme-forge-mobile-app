@@ -10,13 +10,14 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/config/app_config.dart';
+import 'core/services/notification_service.dart';
+import 'core/services/background_service.dart';
 import 'firebase_options.dart';
 
 void main() async {
  
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Load environment variables
   await dotenv.load(fileName: ".env");
 
   await Firebase.initializeApp(
@@ -27,6 +28,11 @@ void main() async {
     url: AppConfig.supabaseUrl,
     anonKey: AppConfig.supabaseAnonKey,
   );
+
+  await NotificationService.initializeNotification();
+  await NotificationService.requestPermission();
+  
+  await BackgroundService.init();
   
   runApp(
     const ProviderScope(
