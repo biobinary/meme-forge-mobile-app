@@ -40,9 +40,29 @@ class NotificationService {
         title: 'Caption AI kamu udah jadi nih! 🧠✨',
         body: 'Cek hasilnya sekarang.',
         notificationLayout: NotificationLayout.Default,
-        // Using colors from rules.md
-        backgroundColor: const Color(0xFFFFD500), 
+        backgroundColor: const Color(0xFFFFD500),
         color: Colors.black,
+      ),
+    );
+  }
+
+  static Future<void> showAiGenerationErrorNotification(String errorMessage) async {
+    // Simplify error message for notification display
+    final isQuotaError = errorMessage.contains('batas') || errorMessage.contains('limit');
+    final title = isQuotaError ? 'Kuota AI Habis 😔' : 'AI Gagal Berjalan ❌';
+    final body = isQuotaError
+        ? 'Kamu telah mencapai batas harian. Coba lagi besok!'
+        : 'Terjadi kesalahan saat membuat meme. Silakan coba lagi.';
+
+    await AwesomeNotifications().createNotification(
+      content: NotificationContent(
+        id: 2,
+        channelKey: channelKey,
+        title: title,
+        body: body,
+        notificationLayout: NotificationLayout.Default,
+        backgroundColor: const Color(0xFFFF5555),
+        color: Colors.white,
       ),
     );
   }

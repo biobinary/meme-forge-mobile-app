@@ -12,6 +12,9 @@ import '../utils/editor_utils.dart';
 import '../crop_screen.dart';
 import 'meme_text_widget.dart';
 
+const _kAiSuggestionKey = kAiSuggestionKey;
+const _kAiErrorKey = kAiErrorKey;
+
 class EditorToolbar extends ConsumerStatefulWidget {
   const EditorToolbar({
     super.key,
@@ -530,10 +533,13 @@ class _EditorToolbarState extends ConsumerState<EditorToolbar> {
     try {
       ref.read(aiProcessingProvider.notifier).state = true;
 
-      // Schedule background task
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_kAiSuggestionKey);
+      await prefs.remove(_kAiErrorKey);
+
       BackgroundService.scheduleAITask(widget.imageFile.path, user.uid);
 
-      if (mounted) {
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('AI sedang bekerja di background... 🧠'),
@@ -543,14 +549,9 @@ class _EditorToolbarState extends ConsumerState<EditorToolbar> {
         );
       }
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('last_ai_suggestion');
-
       int attempts = 0;
-      const maxAttempts = 45;
+      const maxAttempts = 60;
 
-      // Poll for result — loop aborts if widget is disposed (_isPolling=false)
-      // or user cancels via the cancel button (aiProcessingProvider=false).
       while (attempts < maxAttempts &&
           _isPolling &&
           mounted &&
@@ -561,17 +562,35 @@ class _EditorToolbarState extends ConsumerState<EditorToolbar> {
         if (!mounted || !_isPolling) break;
 
         await prefs.reload();
-        final resultStr = prefs.getString('last_ai_suggestion');
 
-        if (resultStr != null) {
-          final Map<String, dynamic> json = jsonDecode(resultStr) as Map<String, dynamic>;
-          await prefs.remove('last_ai_suggestion');
-
+        // ── Check for error first ──
+        final errorStr = prefs.getString(_kAiErrorKey);
+        if (errorStr != null) {
+          await prefs.remove(_kAiErrorKey);
           if (!mounted || !_isPolling) break;
 
           ref.read(aiProcessingProvider.notifier).state = false;
 
-          // Single source of truth: no duplicate parsing here
+          if (context.mounted) {
+            _showAiErrorDialog(context, errorStr);
+          }
+          break;
+        }
+
+        final resultStr = prefs.getString(_kAiSuggestionKey);
+        if (resultStr != null) {
+          await prefs.remove(_kAiSuggestionKey);
+          if (!mounted || !_isPolling) break;
+
+          final Map<String, dynamic> json = jsonDecode(resultStr) as Map<String, dynamic>;
+
+          final resultImagePath = json['imagePath'] as String?;
+          if (resultImagePath != null && resultImagePath != widget.imageFile.path) {
+            attempts++;
+            continue;
+          }
+
+          ref.read(aiProcessingProvider.notifier).state = false;
           ref.read(editorProvider.notifier).applyAIJson(json);
 
           if (context.mounted) {
@@ -584,19 +603,22 @@ class _EditorToolbarState extends ConsumerState<EditorToolbar> {
           }
           break;
         }
+
         attempts++;
       }
 
-      if (context.mounted &&
+      if (mounted &&
           _isPolling &&
           attempts >= maxAttempts &&
           ref.read(aiProcessingProvider)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('AI butuh waktu lebih lama. Cek notifikasi nanti ya! 🔔'),
-            backgroundColor: Colors.blueAccent,
-          ),
-        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('AI butuh waktu lebih lama. Cek notifikasi nanti ya! 🔔'),
+              backgroundColor: Colors.blueAccent,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (context.mounted) {
@@ -613,6 +635,46 @@ class _EditorToolbarState extends ConsumerState<EditorToolbar> {
         ref.read(aiProcessingProvider.notifier).state = false;
       }
     }
+  }
+
+  void _showAiErrorDialog(BuildContext context, String errorMessage) {
+    final isQuotaError = errorMessage.contains('batas') || errorMessage.contains('limit');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF18181B),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: Colors.white12, width: 1.5),
+        ),
+        title: Row(
+          children: [
+            Icon(
+              isQuotaError ? Icons.hourglass_empty_rounded : Icons.error_outline_rounded,
+              color: const Color(0xFFFFD500),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              isQuotaError ? 'Kuota Habis' : 'AI Gagal',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: Text(
+          errorMessage,
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text(
+              'OK',
+              style: TextStyle(color: Color(0xFFFFD500), fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

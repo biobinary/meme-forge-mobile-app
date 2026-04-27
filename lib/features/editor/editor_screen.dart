@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/providers/image_provider.dart';
 import '../../core/providers/editor_provider.dart';
+import '../../core/services/background_service.dart';
 import 'processing_screen.dart';
 import 'widgets/editor_canvas.dart';
 import 'widgets/editor_toolbar.dart';
@@ -57,13 +58,40 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
   Future<void> _checkForBackgroundResult() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.reload();
-    final resultStr = prefs.getString('last_ai_suggestion');
 
+    // ── Check for error first ──
+    final errorStr = prefs.getString(kAiErrorKey);
+    if (errorStr != null && mounted) {
+      await prefs.remove(kAiErrorKey);
+
+      if (ref.read(aiProcessingProvider)) {
+        ref.read(aiProcessingProvider.notifier).state = false;
+      }
+
+      if (!mounted) return;
+      final isQuotaError = errorStr.contains('batas') || errorStr.contains('limit');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(isQuotaError ? '⚠️ Kuota AI habis. Coba lagi besok!' : '❌ AI gagal: $errorStr'),
+          backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
+    // ── Check for successful result ──
+    final resultStr = prefs.getString(kAiSuggestionKey);
     if (resultStr != null) {
       final json = jsonDecode(resultStr) as Map<String, dynamic>;
 
+      final resultImagePath = json['imagePath'] as String?;
+      if (resultImagePath != null && resultImagePath != widget.imageFile.path) {
+        return;
+      }
+
       // Clear result immediately to prevent double-apply
-      await prefs.remove('last_ai_suggestion');
+      await prefs.remove(kAiSuggestionKey);
 
       if (!mounted) return;
 

@@ -75,10 +75,10 @@ class AIService {
   }
 
   Future<AISuggestion> getAutoEditSuggestions(File imageFile, String userId) async {
-    await _checkAndIncrementUsage(userId);
-    
+    await _checkUsageLimit(userId);
+
     final bytes = await imageFile.readAsBytes();
-    
+
     final prompt = [
       Content.multi([
         TextPart('''
@@ -120,17 +120,23 @@ class AIService {
 
     final response = await _model.generateContent(prompt);
     final text = response.text;
-    
-    if (text == null) {
-      throw Exception('AI returned empty response');
+
+    if (text == null || text.trim().isEmpty) {
+      throw Exception('AI mengembalikan respons kosong. Coba lagi.');
     }
 
+    AISuggestion suggestion;
     try {
       final json = jsonDecode(text);
-      return AISuggestion.fromJson(json);
+      suggestion = AISuggestion.fromJson(json);
     } catch (e) {
-      throw Exception('Failed to parse AI response: $e');
+      throw Exception('Gagal memproses jawaban AI. Coba lagi.');
     }
+
+    // Step 3: Only increment quota AFTER a successful AI response.
+    await _incrementUsage(userId);
+
+    return suggestion;
   }
 
   Future<DateTime> _getNetworkTimeUtc() async {
@@ -140,65 +146,77 @@ class AIService {
       final request = await client.headUrl(Uri.parse('https://www.google.com'));
       final response = await request.close();
       final dateHeader = response.headers.value('date');
-      
+
       if (dateHeader != null) {
         return HttpDate.parse(dateHeader).toUtc();
       }
-      
+
       throw Exception('Format header tanggal dari server tidak valid.');
     } catch (e) {
       throw Exception('Gagal memverifikasi waktu server. Pastikan koneksi internet Anda stabil untuk menggunakan fitur AI.');
     }
   }
 
-  Future<void> _checkAndIncrementUsage(String userId) async {
-    
+  Future<void> _checkUsageLimit(String userId) async {
     final docRef = FirebaseFirestore.instance.collection('ai_usage').doc(userId);
     final nowUtc = await _getNetworkTimeUtc();
-    
+
+    final doc = await docRef.get();
+
+    if (!doc.exists) return; // First-time user, no limit issue
+
+    final data = doc.data()!;
+    final lastResetUtc = (data['lastReset'] as Timestamp?)?.toDate().toUtc() ?? nowUtc;
+    int count = data['count'] ?? 0;
+
+    final isSameDay = lastResetUtc.year == nowUtc.year &&
+                      lastResetUtc.month == nowUtc.month &&
+                      lastResetUtc.day == nowUtc.day;
+
+    if (!isSameDay) return;
+
+    if (count >= 5) {
+      throw LimitReachedException('Kamu telah mencapai batas 5 request AI hari ini. Coba lagi besok!');
+    }
+  }
+
+  Future<void> _incrementUsage(String userId) async {
+    final docRef = FirebaseFirestore.instance.collection('ai_usage').doc(userId);
+    final nowUtc = await _getNetworkTimeUtc();
+
     return FirebaseFirestore.instance.runTransaction((transaction) async {
-    
       final doc = await transaction.get(docRef);
-      
+
       if (!doc.exists) {
-    
         transaction.set(docRef, {
           'count': 1,
           'lastReset': FieldValue.serverTimestamp(),
         });
-    
         return;
-    
       }
 
       final data = doc.data()!;
       final lastResetUtc = (data['lastReset'] as Timestamp?)?.toDate().toUtc() ?? nowUtc;
       int count = data['count'] ?? 0;
 
-      final isSameDay = lastResetUtc.year == nowUtc.year && 
-                        lastResetUtc.month == nowUtc.month && 
+      final isSameDay = lastResetUtc.year == nowUtc.year &&
+                        lastResetUtc.month == nowUtc.month &&
                         lastResetUtc.day == nowUtc.day;
 
       if (!isSameDay) {
-        
         transaction.update(docRef, {
           'count': 1,
           'lastReset': FieldValue.serverTimestamp(),
         });
-
       } else {
-        
+        // Double-check in transaction in case of concurrent requests
         if (count >= 5) {
           throw LimitReachedException('Kamu telah mencapai batas 5 request AI hari ini. Coba lagi besok!');
         }
-        
         transaction.update(docRef, {
           'count': count + 1,
         });
-        
       }
-      
     });
-    
   }
 }
