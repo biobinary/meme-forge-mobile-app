@@ -15,11 +15,12 @@ class ProcessingScreen extends StatefulWidget {
     super.key,
     required this.canvasKey,
     required this.sourceFile,
+    this.cropRect,
   });
 
   final GlobalKey canvasKey;
-
   final File sourceFile;
+  final Rect? cropRect;
 
   @override
   State<ProcessingScreen> createState() => _ProcessingScreenState();
@@ -89,16 +90,48 @@ class _ProcessingScreenState extends State<ProcessingScreen>
         throw Exception('Canvas render boundary not found.');
       }
 
-      final ui.Image image = await renderObject.toImage(pixelRatio: 3.0);
+      ui.Image fullImage = await renderObject.toImage(pixelRatio: 3.0);
 
-      // Step 2 — encode
+      if (widget.cropRect != null) {
+    
+        final rect = widget.cropRect!;
+        final recorder = ui.PictureRecorder();
+        final canvas = Canvas(recorder);
+        
+        const double pr = 3.0;
+        final srcRect = Rect.fromLTWH(
+          rect.left * pr,
+          rect.top * pr,
+          rect.width * pr,
+          rect.height * pr,
+        );
+  
+        final dstRect = Rect.fromLTWH(0, 0, rect.width * pr, rect.height * pr);
+
+        canvas.drawImageRect(
+          fullImage,
+          srcRect,
+          dstRect,
+          Paint()..filterQuality = ui.FilterQuality.high,
+        );
+
+        final picture = recorder.endRecording();
+        final croppedImage = await picture.toImage(
+          (rect.width * pr).round(),
+          (rect.height * pr).round(),
+        );
+        
+        fullImage.dispose();
+        fullImage = croppedImage;
+      }
+
       if (!mounted) return;
       setState(() => _step = 1);
       await Future<void>.delayed(const Duration(milliseconds: 400));
 
       final ByteData? byteData =
-          await image.toByteData(format: ui.ImageByteFormat.png);
-      image.dispose();
+          await fullImage.toByteData(format: ui.ImageByteFormat.png);
+      fullImage.dispose();
 
       if (byteData == null) throw Exception('Failed to encode image.');
 

@@ -169,12 +169,16 @@ class _EditorScreenState extends ConsumerState<EditorScreen> with WidgetsBinding
                 ),
               ),
               onPressed: () {
-                _editorCanvasKey.currentState?.prepareForExport();
+                final canvasState = _editorCanvasKey.currentState;
+                final rect = canvasState?.imageRect;
+                canvasState?.prepareForExport();
+                
                 Navigator.of(context).push(
                   PageRouteBuilder<void>(
                     pageBuilder: (_, __, ___) => ProcessingScreen(
                       canvasKey: _canvasKey,
                       sourceFile: currentImage,
+                      cropRect: rect,
                     ),
                     transitionsBuilder: (_, animation, __, child) {
                       return FadeTransition(opacity: animation, child: child);

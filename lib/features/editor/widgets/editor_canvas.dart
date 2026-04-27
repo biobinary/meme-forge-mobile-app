@@ -27,22 +27,33 @@ class EditorCanvasState extends ConsumerState<EditorCanvas> {
   final Map<String, GlobalKey> _stickerKeys = {};
   bool _isDragging = false;
   bool _isNearTrash = false;
-  bool _isExporting = false;
   final GlobalKey _trashKey = GlobalKey();
+  final GlobalKey _imageKey = GlobalKey();
 
   void prepareForExport() {
     setState(() {
       _activeOverlayId = null;
-      _isExporting = true;
     });
   }
 
   void restoreAfterExport() {
-    if (mounted) {
-      setState(() {
-        _isExporting = false;
-      });
+  }
+
+  Rect? get imageRect {
+    final canvasBox = widget.canvasKey.currentContext?.findRenderObject() as RenderBox?;
+    final imageBox = _imageKey.currentContext?.findRenderObject() as RenderBox?;
+    
+    if (canvasBox != null && imageBox != null) {
+      final canvasPos = canvasBox.localToGlobal(Offset.zero);
+      final imagePos = imageBox.localToGlobal(Offset.zero);
+      return Rect.fromLTWH(
+        imagePos.dx - canvasPos.dx,
+        imagePos.dy - canvasPos.dy,
+        imageBox.size.width,
+        imageBox.size.height,
+      );
     }
+    return null;
   }
 
   void _checkIfNearTrash(Offset globalPosition) {
@@ -57,7 +68,6 @@ class EditorCanvasState extends ConsumerState<EditorCanvas> {
     final hasTop = widget.editorState.topText?.isNotEmpty == true;
     final hasBottom = widget.editorState.bottomText?.isNotEmpty == true;
 
-    // Ensure keys exist for every overlay and prune stale keys.
     final currentIds = widget.editorState.overlays.map((o) => o.id).toSet();
     _stickerKeys.removeWhere((id, _) => !currentIds.contains(id));
     for (final item in widget.editorState.overlays) {
@@ -78,91 +88,102 @@ class EditorCanvasState extends ConsumerState<EditorCanvas> {
               },
               child: InteractiveViewer(
                 panEnabled: false,
-                minScale: 0.5,
-                maxScale: 4.0,
-                child: SizedBox(
-                  width: constraints.maxWidth,
-                  height: constraints.maxHeight,
-                  child: Center(
-                    child: RepaintBoundary(
-                      key: widget.canvasKey,
-                      child: Stack(
-                        clipBehavior: _isExporting ? Clip.hardEdge : Clip.none,
-                        alignment: Alignment.center,
-                        children: [
-                          ColorFiltered(
-                            colorFilter: EditorUtils.getFilter(widget.editorState.activeFilter),
-                            child: widget.editorState.croppedImageBytes != null
-                                ? Image.memory(
-                                    widget.editorState.croppedImageBytes!,
-                                  )
-                                : Image.file(
-                                    widget.imageFile,
+                minScale: 1.0, 
+                maxScale: 1.0,
+                child: RepaintBoundary(
+                  key: widget.canvasKey,
+                  child: Container(
+                    width: constraints.maxWidth,
+                    height: constraints.maxHeight,
+                    color: Colors.black, 
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        // The Image Layer - Centered
+                        Center(
+                          child: Stack(
+                            key: _imageKey,
+                            alignment: Alignment.center,
+                            children: [
+                              ColorFiltered(
+                                colorFilter: EditorUtils.getFilter(widget.editorState.activeFilter),
+                                child: widget.editorState.croppedImageBytes != null
+                                    ? Image.memory(
+                                        widget.editorState.croppedImageBytes!,
+                                      )
+                                    : Image.file(
+                                        widget.imageFile,
+                                      ),
+                              ),
+                              // Meme Text - Bound to Image boundaries
+                              if (hasTop)
+                                Positioned(
+                                  top: 16,
+                                  left: 16,
+                                  right: 16,
+                                  child: GestureDetector(
+                                    onLongPress: () => ref
+                                        .read(editorProvider.notifier)
+                                        .clearMemeText(MemeTextSlot.top),
+                                    child: MemeTextWidget(
+                                      text: widget.editorState.topText!,
+                                      font: widget.editorState.memeFont,
+                                      color: widget.editorState.memeColor,
+                                      fontSize: widget.editorState.memeFontSize,
+                                    ),
                                   ),
+                                ),
+                              if (hasBottom)
+                                Positioned(
+                                  bottom: 16,
+                                  left: 16,
+                                  right: 16,
+                                  child: GestureDetector(
+                                    onLongPress: () => ref
+                                        .read(editorProvider.notifier)
+                                        .clearMemeText(MemeTextSlot.bottom),
+                                    child: MemeTextWidget(
+                                      text: widget.editorState.bottomText!,
+                                      font: widget.editorState.memeFont,
+                                      color: widget.editorState.memeColor,
+                                      fontSize: widget.editorState.memeFontSize,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
-                          if (hasTop)
-                            Positioned(
-                              top: 16,
-                              left: 16,
-                              right: 16,
-                              child: GestureDetector(
-                                onLongPress: () => ref
-                                    .read(editorProvider.notifier)
-                                    .clearMemeText(MemeTextSlot.top),
-                                  child: MemeTextWidget(
-                                    text: widget.editorState.topText!,
-                                    font: widget.editorState.memeFont,
-                                    color: widget.editorState.memeColor,
-                                    fontSize: widget.editorState.memeFontSize,
-                                  ),
-                              ),
-                            ),
-                          if (hasBottom)
-                            Positioned(
-                              bottom: 16,
-                              left: 16,
-                              right: 16,
-                              child: GestureDetector(
-                                onLongPress: () => ref
-                                    .read(editorProvider.notifier)
-                                    .clearMemeText(MemeTextSlot.bottom),
-                                  child: MemeTextWidget(
-                                    text: widget.editorState.bottomText!,
-                                    font: widget.editorState.memeFont,
-                                    color: widget.editorState.memeColor,
-                                    fontSize: widget.editorState.memeFontSize,
-                                  ),
-                              ),
-                            ),
-                          ...widget.editorState.overlays.map((item) {
-                            return DraggableSticker(
-                              key: ValueKey(item.id),
-                              stickerKey: _stickerKeys[item.id]!,
-                              item: item,
-                              isActive: _activeOverlayId == item.id,
-                              onTap: () => setState(() => _activeOverlayId = item.id),
-                              onDragStart: () => setState(() => _isDragging = true),
-                              onDragUpdate: (globalPos) => _checkIfNearTrash(globalPos),
-                              onDragEnd: (globalPos) {
-                                if (_isNearTrash) {
-                                  ref.read(editorProvider.notifier).removeOverlay(item.id);
-                                  setState(() => _activeOverlayId = null);
-                                }
-                                setState(() {
-                                  _isDragging = false;
-                                  _isNearTrash = false;
-                                });
-                              },
-                              onTransformChanged: () => setState(() {}),
-                            );
-                          }),
-                        ],
-                      ),
+                        ),
+                        
+                        // Sticker Layer - Allowed to move everywhere
+                        ...widget.editorState.overlays.map((item) {
+                          return DraggableSticker(
+                            key: ValueKey(item.id),
+                            stickerKey: _stickerKeys[item.id]!,
+                            item: item,
+                            isActive: _activeOverlayId == item.id,
+                            onTap: () => setState(() => _activeOverlayId = item.id),
+                            onDragStart: () => setState(() => _isDragging = true),
+                            onDragUpdate: (globalPos) => _checkIfNearTrash(globalPos),
+                            onDragEnd: (globalPos) {
+                              if (_isNearTrash) {
+                                ref.read(editorProvider.notifier).removeOverlay(item.id);
+                                setState(() => _activeOverlayId = null);
+                              }
+                              setState(() {
+                                _isDragging = false;
+                                _isNearTrash = false;
+                              });
+                            },
+                            onTransformChanged: () => setState(() {}),
+                          );
+                        }),
+                      ],
                     ),
                   ),
                 ),
               ),
             ),
+            
             Positioned(
               bottom: 40,
               child: AnimatedOpacity(
@@ -209,3 +230,4 @@ class EditorCanvasState extends ConsumerState<EditorCanvas> {
     );
   }
 }
+
